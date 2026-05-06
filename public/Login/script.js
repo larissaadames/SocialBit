@@ -68,6 +68,10 @@ if (bg) {
 
 const loginForm = document.querySelector("form");
 
+document.addEventListener("DOMContentLoaded", () => {
+  window.SocialBitSession?.renderCurrentSession();
+});
+
 if (loginForm) {
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -105,10 +109,12 @@ if (loginForm) {
         
         localStorage.setItem("userId", data.id);
         localStorage.setItem("username", data.username);
+        if (data.perfil) localStorage.setItem("perfil", data.perfil);
+        if (data.foto_url) localStorage.setItem("foto_url", data.foto_url);
         
         // Redirecionamento para o perfil após um pequeno delay para mostrar o brinde
         setTimeout(() => {
-          window.location.href = `../perfil/perfil.html`;
+          window.location.href = `${APP_BASE_URL}/perfil`;
         }, 1000);
         
       } else {

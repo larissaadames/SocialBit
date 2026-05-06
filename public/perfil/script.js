@@ -4,16 +4,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 1. GESTÃO DE CONTEXTO E VARIÁVEIS GLOBAIS
     const params = new URLSearchParams(window.location.search);
     const targetUserId = params.get('id'); 
-    const loggedUserId = localStorage.getItem('userId');
-    const userIdToFetch = targetUserId || loggedUserId;
+    let loggedUserId = localStorage.getItem('userId');
 
     // Variável para guardar a foto em modo de "Preview" antes de salvar
     let fotoPendente = null;
 
-    if (!loggedUserId || loggedUserId === "null") {
-        window.location.href = "../Login/login.html";
+    const sessaoAtual = await window.SocialBitSession?.renderCurrentSession({ requireAuth: true });
+    if (!sessaoAtual) {
         return;
     }
+
+    loggedUserId = localStorage.getItem('userId');
+    if (!loggedUserId || loggedUserId === "null") {
+        window.location.href = "/login";
+        return;
+    }
+
+    const userIdToFetch = targetUserId || loggedUserId;
 
     // 2. ELEMENTOS DA INTERFACE
     const notificationContainer = document.getElementById('notification-container');
@@ -21,6 +28,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const headerAvatar = document.getElementById('header-avatar');
     const dropdown = document.getElementById('user-dropdown');
     const logoutModal = document.getElementById('logout-modal');
+    const token = localStorage.getItem('token');
+    const isAdmin = String(localStorage.getItem('perfil') || 'usuario').toLowerCase() === 'admin';
     const inputTelefone = document.getElementById('edit-telefone');
     const inputDataNasc = document.getElementById('edit-dtNasc');
     const btnSalvar = document.getElementById('btn-save-perfil');
@@ -81,9 +90,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.getElementById('confirm-logout').addEventListener('click', () => {
+        localStorage.removeItem('token');
         localStorage.removeItem('userId');
         localStorage.removeItem('username');
-        window.location.href = "../Login/login.html";
+        localStorage.removeItem('perfil');
+        window.location.href = "/login";
     });
 
     // 5. MÁSCARA TELEFONE E REGEXES
@@ -104,10 +115,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             const termo = searchInput.value.trim();
             if (termo.length < 2) { resultsBox.style.display = "none"; return; }
             try {
-                const res = await fetch(`${APP_BASE_URL}/usuarios/busca?username=${encodeURIComponent(termo)}`);
+                const res = await fetch(`${APP_BASE_URL}/usuarios/busca?username=${encodeURIComponent(termo)}`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
                 const usuarios = await res.json();
                 resultsBox.innerHTML = usuarios.map(u => `
-                    <div class="search-item" onclick="window.location.href='perfil.html?id=${u.id}'">
+                    <div class="search-item" onclick="window.location.href='/perfil?id=${u.id}'">
                         <strong>${formatUsername(u.username)}</strong>
                         <span>${u.nome} ${u.sobrenome}</span>
                     </div>
@@ -120,10 +135,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- 7. CARREGAR HEADER ---
     const carregarHeader = async () => {
         try {
-            const res = await fetch(`${APP_BASE_URL}/usuarios/${loggedUserId}`);
+            const res = await fetch(`${APP_BASE_URL}/usuarios/${loggedUserId}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
             if (res.ok) {
                 const u = await res.json();
-                const foto = (u.foto_url && u.foto_url.length > 50) ? u.foto_url : '../img/bitPerfil.png';
+                const foto = (u.foto_url && u.foto_url.length > 50) ? u.foto_url : '/public/img/bitPerfil.png';
                 headerAvatar.style.backgroundImage = `url('${foto}')`;
             }
         } catch (e) { console.error(e); }
@@ -132,7 +151,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- 8. CARREGAR PERFIL ---
     const carregarPerfil = async () => {
         try {
-            const res = await fetch(`${APP_BASE_URL}/usuarios/${userIdToFetch}`);
+            const res = await fetch(`${APP_BASE_URL}/usuarios/${userIdToFetch}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
             if (!res.ok) throw new Error();
             const u = await res.json();
 
@@ -142,10 +165,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('display-telefone').textContent = u.telefone ? `📞 ${u.telefone}` : "";
             document.getElementById('display-dtNasc').textContent = u.dtNasc ? `🎂 ${u.dtNasc}` : "";
 
-            const fotoPerfil = (u.foto_url && u.foto_url.length > 50) ? u.foto_url : '../img/bitPerfil.png';
+            const fotoPerfil = (u.foto_url && u.foto_url.length > 50) ? u.foto_url : '/public/img/bitPerfil.png';
             displayAvatar.style.backgroundImage = `url('${fotoPerfil}')`;
 
-            if (userIdToFetch == loggedUserId) {
+            if (userIdToFetch == loggedUserId || isAdmin) {
                 document.getElementById('btn-edit-perfil').style.display = 'block';
                 document.getElementById('edit-nome').value = u.nome;
                 document.getElementById('edit-sobrenome').value = u.sobrenome;
@@ -202,7 +225,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnCancelar.style.opacity = "0.5";
 
         const dados = {
-            id: parseInt(loggedUserId),
+            id: parseInt(userIdToFetch),
             nome: nome,
             sobrenome: sobrenome,
             bio: document.getElementById('edit-bio').value,
@@ -214,7 +237,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const res = await fetch(`${APP_BASE_URL}/usuarios/update`, {
                 method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
                 body: JSON.stringify(dados)
             });
 
@@ -284,10 +310,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         deleteModal.style.display = 'none';
     });
     document.getElementById('confirm-delete').addEventListener('click', async () => {
-        const res = await fetch(`${APP_BASE_URL}/usuarios/${loggedUserId}`, { method: 'DELETE' });
+        const res = await fetch(`${APP_BASE_URL}/usuarios/${userIdToFetch}`, {
+            method: 'DELETE',
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
         if (res.ok) {
             localStorage.clear();
-            window.location.href = "../Login/login.html";
+            window.location.href = "/login";
         }
     });
 

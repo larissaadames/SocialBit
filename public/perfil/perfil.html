@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SocialBit - Perfil</title>
-    <link rel="stylesheet" href="style.css?v=20260419b">
+    <link rel="stylesheet" href="/public/perfil/style.css?v=20260419b">
 </head>
 <body class="dark-theme">
 
@@ -12,9 +12,9 @@
 
     <header class="app-header">
         <div class="header-container">
-            <a href="../home/index.html" class="logo-section logo-link">
+            <a href="/home" class="logo-section logo-link">
                 <span class="logo-text">SocialBit</span>
-                <img src="../img/bitCodando.png" alt="Logo SocialBit" class="logo-icon-img">
+                <img src="/public/img/bitCodando.png" alt="Logo SocialBit" class="logo-icon-img">
             </a>
             
             <div class="search-section">
@@ -26,7 +26,7 @@
                 <div class="header-user-avatar" id="header-avatar"></div>
                 
                 <div id="user-dropdown" class="dropdown-menu">
-                    <a href="perfil.html" class="dropdown-item">Acessar Perfil</a>
+                    <a href="/perfil" class="dropdown-item">Acessar Perfil</a>
                     <button id="btn-logout-trigger" class="dropdown-item logout-style">Sair</button>
                 </div>
             </div>
@@ -115,6 +115,7 @@
     </div>
 
     <input type="file" id="file-input" accept="image/*" style="display: none;">
-    <script src="script.js"></script>
+    <script src="/public/session.js?v=20260506"></script>
+    <script src="/public/perfil/script.js?v=20260506"></script>
 </body>
 </html>

@@ -166,6 +166,10 @@ function getMensagemCampoInvalido(campo) {
 // --- Submissao do formulario ---
 const cadastroForm = document.getElementById("form-cadastro") || document.querySelector("form");
 
+document.addEventListener("DOMContentLoaded", () => {
+  window.SocialBitSession?.renderCurrentSession();
+});
+
 if (cadastroForm) {
     cadastroForm.addEventListener("submit", async function (e) {
       e.preventDefault();
@@ -254,7 +258,7 @@ if (cadastroForm) {
         if (response.ok) {
           showNotification("Usuário cadastrado com sucesso!", "success");
           setTimeout(() => {
-            window.location.href = `${APP_BASE_URL}/public/Login/login.html`;
+            window.location.href = `${APP_BASE_URL}/login`;
           }, 900);
         } else {
           console.error("Erro de validacao:", data.detail);

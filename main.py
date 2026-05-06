@@ -1,6 +1,8 @@
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Depends, HTTPException, Header, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, text, func, and_
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -9,16 +11,17 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from urllib.parse import quote_plus
+from pathlib import Path
 import hashlib
 import re
 
 # Configuracao fixa (sem variaveis de ambiente)
 DB_USER = "root"
-DB_PASSWORD = "1234"
+DB_PASSWORD = "root"
 DB_NAME = "socialbit"
 DB_HOST = "localhost"
 
-SQLALCHEMY_DATABASE_URL = "mysql+pymysql://root:1234@localhost/socialbit"
+SQLALCHEMY_DATABASE_URL = "mysql+pymysql://root:root@localhost/socialbit"
 
 # SQLALCHEMY_DATABASE_URL = (
 #     f"mysql+pymysql://{DB_USER}:{quote_plus(DB_PASSWORD)}@{DB_HOST}/{DB_NAME}"
@@ -40,6 +43,7 @@ class Usuario(Base):
     nome = Column(String(50))
     sobrenome = Column(String(50))
     telefone = Column(String(20))
+    role = Column(String(20), nullable=False, default="usuario")
     bio = Column(Text, nullable=True)
     foto_url = Column(Text, nullable=True) # Para salvar Base64
 
@@ -63,8 +67,6 @@ class PostSalvo(Base):
     usuario_id = Column("fk_Usuario_ID", Integer, ForeignKey("Usuario.ID"), primary_key=True)
     post_id = Column("fk_Post_ID", Integer, ForeignKey("Post.ID"), primary_key=True)
 
-# Garante que todas as tabelas e colunas novas existam
-Base.metadata.create_all(bind=engine)
 
 # --- 3. ESQUEMAS DE VALIDAÇÃO (PYDANTIC) ---
 
@@ -113,7 +115,20 @@ app.add_middleware(
 )
 
 # Montagem da pasta de arquivos estáticos
-app.mount("/public", StaticFiles(directory="public"), name="public")
+BASE_DIR = Path(__file__).resolve().parent
+PUBLIC_DIR = BASE_DIR / "public"
+app.mount("/public", StaticFiles(directory=str(PUBLIC_DIR)), name="public")
+templates = Jinja2Templates(directory=str(PUBLIC_DIR))
+
+
+@app.on_event("startup")
+def startup_db():
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as error:
+        print(f"Aviso: nao foi possivel conectar ao banco no startup: {error}")
+
+    ensure_schema_compatibility()
 
 
 def ensure_schema_compatibility():
@@ -138,6 +153,7 @@ def ensure_schema_compatibility():
             conn.execute(text("ALTER TABLE Usuario MODIFY COLUMN senha VARCHAR(100)"))
 
             required_usuario_columns = {
+                "role": "ALTER TABLE Usuario ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'usuario'",
                 "bio": "ALTER TABLE Usuario ADD COLUMN bio TEXT NULL",
                 "foto_url": "ALTER TABLE Usuario ADD COLUMN foto_url TEXT NULL",
             }
@@ -160,6 +176,9 @@ def ensure_schema_compatibility():
                 if not exists:
                     conn.execute(text(ddl))
 
+            if column_exists(conn, "Usuario", "role"):
+                conn.execute(text("UPDATE Usuario SET role = 'usuario' WHERE role IS NULL OR role = ''"))
+
             # Compatibilidade com schema de Post legado (texto/voto)
             if not column_exists(conn, "Post", "texto"):
                 conn.execute(text("ALTER TABLE Post ADD COLUMN texto VARCHAR(500) NULL"))
@@ -173,9 +192,6 @@ def ensure_schema_compatibility():
     except Exception as error:
         # Se a tabela/coluna ainda nao existir em algum setup, mantemos o app de pe.
         print(f"Aviso: nao foi possivel ajustar schema do banco: {error}")
-
-
-ensure_schema_compatibility()
 
 
 def get_db():
@@ -230,11 +246,19 @@ def validate_phone_or_raise(phone: str):
             detail="Telefone inválido. Use o formato (00) 00000-0000",
         )
 
-def get_current_user_id(authorization: str = Header(default=None)) -> int:
-    if not authorization or not authorization.startswith("Bearer "):
+def get_current_user_id(
+    request: Request,
+    authorization: str = Header(default=None),
+) -> int:
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+    else:
+        token = request.cookies.get("access_token")
+
+    if not token:
         raise HTTPException(status_code=401, detail="Token ausente")
 
-    token = authorization.split(" ", 1)[1]
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return int(payload["sub"])
@@ -242,10 +266,69 @@ def get_current_user_id(authorization: str = Header(default=None)) -> int:
         raise HTTPException(status_code=401, detail="Token inválido")
 
 
+def require_authenticated_page(request: Request) -> Optional[RedirectResponse]:
+    token = request.cookies.get("access_token")
+    if not token:
+        return RedirectResponse(url="/login")
+    try:
+        jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        return RedirectResponse(url="/login")
+    return None
+
+
+def normalize_role(value: Optional[str]) -> str:
+    role = (value or "").strip().lower()
+    if role in {"admin", "administrador"}:
+        return "admin"
+    return "usuario"
+
+
+def get_user_role(usuario: Usuario) -> str:
+    return normalize_role(usuario.role)
+
+
+def get_current_user(db: Session, user_id: int) -> Usuario:
+    usuario = db.query(Usuario).filter(Usuario.ID == user_id).first()
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Sessao invalida")
+    return usuario
+
+
+def user_can_manage(target_user_id: int, current_user: Usuario) -> bool:
+    return int(current_user.ID) == int(target_user_id) or get_user_role(current_user) == "admin"
+
+
 # 5. Rotas
 @app.get("/")
 async def root():
-    return {"message": "SocialBit API Online. Acesse /public/Login/login.html"}
+    return RedirectResponse(url="/login")
+
+
+@app.get("/login")
+async def login_page(request: Request):
+    return templates.TemplateResponse(request, "Login/login.html", {"request": request})
+
+
+@app.get("/cadastro")
+async def cadastro_page(request: Request):
+    return templates.TemplateResponse(request, "Cadastro/cadastro.html", {"request": request})
+
+
+@app.get("/home")
+async def home_page(request: Request):
+    redirect = require_authenticated_page(request)
+    if redirect:
+        return redirect
+    return templates.TemplateResponse(request, "home/index.html", {"request": request})
+
+
+@app.get("/perfil")
+async def perfil_page(request: Request):
+    redirect = require_authenticated_page(request)
+    if redirect:
+        return redirect
+    return templates.TemplateResponse(request, "perfil/perfil.html", {"request": request})
 
 
 @app.get("/auth/me")
@@ -253,11 +336,14 @@ async def obter_sessao_atual(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    usuario = db.query(Usuario).filter(Usuario.ID == user_id).first()
-    if not usuario:
-        raise HTTPException(status_code=401, detail="Sessao invalida")
+    usuario = get_current_user(db, user_id)
 
-    return {"id": usuario.ID, "username": usuario.username}
+    return {
+        "id": usuario.ID,
+        "username": usuario.username,
+        "perfil": get_user_role(usuario),
+        "foto_url": usuario.foto_url or "",
+    }
 
 
 @app.post("/login")
@@ -276,13 +362,22 @@ async def login(dados: LoginRequest, db: Session = Depends(get_db)):
         db.commit()
 
     token = create_access_token(usuario.ID)
-    return {
+    response = JSONResponse({
         "message": "Sucesso",
         "id": usuario.ID,
         "username": usuario.username,
+        "perfil": get_user_role(usuario),
+        "foto_url": usuario.foto_url or "",
         "access_token": token,
         "token_type": "bearer",
-    }
+    })
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        max_age=TOKEN_EXPIRE_MINUTES * 60,
+        samesite="lax",
+    )
+    return response
 
 
 @app.post("/usuarios")
@@ -310,19 +405,27 @@ async def cadastrar_usuario(usuario: CadastroUsuario, db: Session = Depends(get_
     novo_usuario = Usuario(
         username=username_limpo, dtNasc=usuario.dtNasc, senha=senha_criptografada,
         email=usuario.email, nome=usuario.nome, sobrenome=usuario.sobrenome,
-        telefone=usuario.telefone, bio="", foto_url=""
+        telefone=usuario.telefone, role="usuario", bio="", foto_url=""
     )
     db.add(novo_usuario)
     db.commit()
     return {"message": "Usuário cadastrado com sucesso"}
 
 @app.delete("/usuarios/{user_id}")
-async def deletar_usuario(user_id: int, db: Session = Depends(get_db)):
+async def deletar_usuario(
+    user_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     
     usuario = db.query(Usuario).filter(Usuario.ID == user_id).first()
     
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario não encontrado")
+
+    current_user = get_current_user(db, current_user_id)
+    if not user_can_manage(user_id, current_user):
+        raise HTTPException(status_code=403, detail="Sem permissão para excluir este usuário")
     
     try:
         
@@ -340,14 +443,22 @@ async def deletar_usuario(user_id: int, db: Session = Depends(get_db)):
 # --- 6. ROTAS DE PERFIL E BUSCA ---
 
 @app.get("/usuarios/busca")
-async def buscar_usuarios(username: str, db: Session = Depends(get_db)):
+async def buscar_usuarios(
+    username: str,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     termo = username.strip()
     if not termo: return []
     usuarios = db.query(Usuario).filter(Usuario.username.like(f"%{termo}%")).limit(10).all()
     return [{"id": u.ID, "username": u.username, "nome": u.nome, "sobrenome": u.sobrenome} for u in usuarios]
 
 @app.get("/usuarios/{user_id}")
-async def obter_perfil(user_id: str, db: Session = Depends(get_db)):
+async def obter_perfil(
+    user_id: str,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     # Tratamento para evitar erro quando o localStorage retorna "null" no JS
     if user_id in ["null", "undefined", ""]:
         raise HTTPException(status_code=400, detail="ID de usuário inválido")
@@ -360,14 +471,23 @@ async def obter_perfil(user_id: str, db: Session = Depends(get_db)):
         "id": usuario.ID, "username": usuario.username, "nome": usuario.nome,
         "sobrenome": usuario.sobrenome, "bio": usuario.bio or "",
         "telefone": usuario.telefone or "", "dtNasc": usuario.dtNasc or "",
-        "foto_url": usuario.foto_url or ""
+        "foto_url": usuario.foto_url or "",
+        "perfil": get_user_role(usuario),
     }
 
 @app.put("/usuarios/update")
-async def atualizar_perfil(dados: UserUpdate, db: Session = Depends(get_db)):
+async def atualizar_perfil(
+    dados: UserUpdate,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     db_user = db.query(Usuario).filter(Usuario.ID == dados.id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    current_user = get_current_user(db, current_user_id)
+    if not user_can_manage(dados.id, current_user):
+        raise HTTPException(status_code=403, detail="Sem permissão para atualizar este usuário")
 
     # 1. Validação de Telefone (Já existente no seu código)
     validate_phone_or_raise(dados.telefone)
@@ -509,7 +629,11 @@ async def criar_post_autenticado(
     }
 
 @app.post("/posts/criar")
-async def criar_post(dados: PostCreate, db: Session = Depends(get_db)):
+async def criar_post(
+    dados: PostCreate,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     conteudo_limpo = dados.conteudo.strip()
     if not conteudo_limpo:
         raise HTTPException(status_code=400, detail="Conteudo do post nao pode ser vazio")
@@ -521,13 +645,21 @@ async def criar_post(dados: PostCreate, db: Session = Depends(get_db)):
     db.add(novo_post)
     db.flush()
 
-    relacionamento = PostUsuario(usuario_id=dados.usuario_id, post_id=novo_post_id)
+    if int(dados.usuario_id) != int(current_user_id):
+        raise HTTPException(status_code=403, detail="Sem permissão para criar post com outro usuário")
+
+    relacionamento = PostUsuario(usuario_id=current_user_id, post_id=novo_post_id)
     db.add(relacionamento)
     db.commit()
     return {"message": "Post criado com sucesso"}
 
 @app.put("/posts/{post_id}/votar")
-async def votar(post_id: int, tipo: str, db: Session = Depends(get_db)):
+async def votar(
+    post_id: int,
+    tipo: str,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     post = db.query(Post).filter(Post.ID == post_id).first()
     if not post: raise HTTPException(status_code=404)
     if tipo == "up": post.votos = (post.votos or 0) + 1
@@ -598,7 +730,8 @@ async def remover_post(
     if not relacionamento:
         raise HTTPException(status_code=404, detail="Autor do post não encontrado")
 
-    if int(relacionamento.usuario_id) != int(user_id):
+    current_user = get_current_user(db, user_id)
+    if int(relacionamento.usuario_id) != int(user_id) and get_user_role(current_user) != "admin":
         raise HTTPException(status_code=403, detail="Sem permissão para remover este post")
 
     db.query(PostSalvo).filter(PostSalvo.post_id == post_id).delete(synchronize_session=False)
@@ -606,3 +739,31 @@ async def remover_post(
     db.delete(post)
     db.commit()
     return {"message": "Post removido com sucesso"}
+
+
+@app.put("/posts/{post_id}")
+async def atualizar_post(
+    post_id: int,
+    dados: PostCreateAuth,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    conteudo_limpo = dados.conteudo.strip()
+    if not conteudo_limpo:
+        raise HTTPException(status_code=400, detail="Conteudo do post nao pode ser vazio")
+
+    post = db.query(Post).filter(Post.ID == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post nao encontrado")
+
+    relacionamento = db.query(PostUsuario).filter(PostUsuario.post_id == post_id).first()
+    if not relacionamento:
+        raise HTTPException(status_code=404, detail="Autor do post nao encontrado")
+
+    current_user = get_current_user(db, user_id)
+    if int(relacionamento.usuario_id) != int(user_id) and get_user_role(current_user) != "admin":
+        raise HTTPException(status_code=403, detail="Sem permissao para editar este post")
+
+    post.conteudo = conteudo_limpo
+    db.commit()
+    return {"message": "Post atualizado com sucesso", "conteudo": post.conteudo}
