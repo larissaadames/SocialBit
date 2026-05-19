@@ -37,8 +37,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const cancelPostButton = document.getElementById("btn-cancel-post");
     const sendPostButton = document.getElementById("btn-send-post");
     const feedScroll = document.getElementById("feed-scroll");
-    const loggedUserId = Number(localStorage.getItem("userId") || 0);
-    const loggedUsername = localStorage.getItem("username") || "usuario";
+    let loggedUserId = Number(localStorage.getItem("userId") || 0);
+    let loggedUsername = localStorage.getItem("username") || "usuario";
     const token = localStorage.getItem("token");
     const MAX_POST_LENGTH = 500;
     const normalizeUsername = value => {
@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         conteudo:
             "Alguem sabe como faz para debugar codigo Python no IntelliJ? Estou quebrando cabeca com breakpoints.",
     };
-    const LOGIN_PAGE_URL = `${APP_BASE_URL}/public/Login/login.html`;
+    const LOGIN_PAGE_URL = `${APP_BASE_URL}/login`;
     let activeFeedTarget = "home";
     let searchDebounceTimer;
     let lastSearchRequestId = 0;
@@ -72,10 +72,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
-    const sessaoValida = await validarSessao();
-    if (!sessaoValida) {
+    const sessaoAtual = await window.SocialBitSession?.renderCurrentSession({ requireAuth: true });
+    if (!sessaoAtual) {
         return;
     }
+
+    loggedUserId = Number(localStorage.getItem("userId") || loggedUserId || 0);
+    loggedUsername = localStorage.getItem("username") || loggedUsername;
+    const loggedRole = String(localStorage.getItem("perfil") || "usuario").toLowerCase();
+    const isAdmin = loggedRole === "admin";
 
     configurarMenuUsuario();
     carregarAvatarHeader();
@@ -242,10 +247,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
 
-        headerAvatar.style.backgroundImage = "url('../img/bitPerfil.png')";
+        headerAvatar.style.backgroundImage = "url('/public/img/bitPerfil.png')";
 
         try {
-            const response = await fetch(`${APP_BASE_URL}/usuarios/${loggedUserId}`);
+            const response = await fetch(`${APP_BASE_URL}/usuarios/${loggedUserId}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
             if (!response.ok) {
                 return;
             }
@@ -254,7 +263,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const fotoFinal =
                 usuario.foto_url && usuario.foto_url.length > 50
                     ? usuario.foto_url
-                    : "../img/bitPerfil.png";
+                    : "/public/img/bitPerfil.png";
 
             headerAvatar.style.backgroundImage = `url('${fotoFinal}')`;
         } catch (error) {
@@ -415,7 +424,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const fotoAutor =
             post.foto_url && post.foto_url.length > 50
                 ? post.foto_url
-                : "../img/bitPerfil.png";
+                : "/public/img/bitPerfil.png";
         avatar.style.backgroundImage = `url('${fotoAutor}')`;
 
         const username = document.createElement("span");
@@ -430,6 +439,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         headerActions.className = "post-header-actions";
 
         const isOwner = loggedUserId > 0 && Number(post.usuario_id) === loggedUserId;
+        const canDelete = isOwner || isAdmin;
 
         const menuWrapper = document.createElement("div");
         menuWrapper.className = "post-menu-wrapper";
@@ -453,7 +463,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         menuContent.appendChild(reportAction);
 
-        if (isOwner) {
+        if (canDelete) {
+            const editAction = document.createElement("button");
+            editAction.type = "button";
+            editAction.className = "post-menu-item";
+            editAction.innerHTML = '<span class="menu-item-icon">✎</span><span>Editar</span>';
+            editAction.addEventListener("click", () => {
+                menuWrapper.classList.remove("open");
+                editarPost(post, card, editAction);
+            });
+            menuContent.appendChild(editAction);
+
             const deleteAction = document.createElement("button");
             deleteAction.type = "button";
             deleteAction.className = "post-menu-item danger";
@@ -620,7 +640,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const avatar = document.createElement("div");
         avatar.className = "post-user-avatar";
-        avatar.style.backgroundImage = "url('../img/bitPerfil.png')";
+        avatar.style.backgroundImage = "url('/public/img/bitPerfil.png')";
 
         const username = document.createElement("span");
         username.className = "post-user-name";
@@ -739,6 +759,66 @@ document.addEventListener("DOMContentLoaded", async () => {
             alert(error.message || "Erro inesperado ao excluir o post.");
             deleteButton.disabled = false;
             deleteButton.classList.remove("is-loading");
+        }
+    }
+
+    async function editarPost(post, postCard, editButton) {
+        if (!token) {
+            alert("Voce precisa estar logado para editar posts.");
+            return;
+        }
+
+        const conteudoAtual = String(post.conteudo || "");
+        const novoConteudo = window.prompt("Edite o conteudo do post:", conteudoAtual);
+        if (novoConteudo === null) {
+            return;
+        }
+
+        const conteudoLimpo = novoConteudo.trim();
+        if (!conteudoLimpo) {
+            alert("O conteudo do post nao pode ser vazio.");
+            return;
+        }
+
+        if (conteudoLimpo.length > MAX_POST_LENGTH) {
+            alert(`O conteudo excede ${MAX_POST_LENGTH} caracteres.`);
+            return;
+        }
+
+        editButton.disabled = true;
+        editButton.classList.add("is-loading");
+
+        try {
+            const response = await fetch(`${APP_BASE_URL}/posts/${post.id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ conteudo: conteudoLimpo }),
+            });
+
+            if (response.status === 401) {
+                encerrarSessaoEIrLogin("Sua sessao expirou. Faca login novamente.");
+                return;
+            }
+
+            if (!response.ok) {
+                const detail = await extrairErro(response);
+                throw new Error(detail || "Nao foi possivel editar o post.");
+            }
+
+            post.conteudo = conteudoLimpo;
+            const texto = postCard.querySelector(".post-text");
+            if (texto) {
+                texto.textContent = conteudoLimpo;
+            }
+        } catch (error) {
+            console.error("Erro ao editar post:", error);
+            alert(error.message || "Erro inesperado ao editar o post.");
+        } finally {
+            editButton.disabled = false;
+            editButton.classList.remove("is-loading");
         }
     }
 
@@ -958,7 +1038,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         try {
             const response = await fetch(
-                `${APP_BASE_URL}/usuarios/busca?username=${encodeURIComponent(termo)}`
+                `${APP_BASE_URL}/usuarios/busca?username=${encodeURIComponent(termo)}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
             );
 
             if (requestId !== lastSearchRequestId) {
@@ -1003,7 +1088,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             ].join("");
 
             item.addEventListener("click", () => {
-                window.location.href = `../perfil/perfil.html?id=${usuario.id}`;
+                window.location.href = `/perfil?id=${usuario.id}`;
             });
 
             searchResults.appendChild(item);

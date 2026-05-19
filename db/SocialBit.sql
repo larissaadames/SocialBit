@@ -9,6 +9,7 @@ CREATE TABLE Usuario (
     dtNasc date,
     senha varchar(100),
     email varchar(100),
+    role varchar(20) NOT NULL DEFAULT 'usuario',
     nome varchar(25),
     sobrenome varchar(50),
     telefone varchar(15)

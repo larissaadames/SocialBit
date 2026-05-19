@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SocialBit - Home</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/public/home/style.css">
 </head>
 <body class="dark-theme">
 
     <header class="app-header">
         <div class="header-container">
-            <a href="index.html" class="logo-section logo-link">
+            <a href="/home" class="logo-section logo-link">
                 <span class="logo-text">SocialBit</span>
-                <img src="../img/bitCodando.png" alt="Bug BitSocial" class="logo-icon-img">
+                <img src="/public/img/bitCodando.png" alt="Bug BitSocial" class="logo-icon-img">
             </a>
             <div class="search-section">
                 <input type="text" placeholder="Pesquisar usuários..." class="search-bar" id="main-search">
@@ -23,7 +23,7 @@
                 <div class="header-user-avatar" id="header-avatar"></div>
 
                 <div id="user-dropdown" class="dropdown-menu">
-                    <a href="../perfil/perfil.html" class="dropdown-item">Acessar Perfil</a>
+                    <a href="/perfil" class="dropdown-item">Acessar Perfil</a>
                     <button id="btn-logout-trigger" class="dropdown-item logout-style">Sair</button>
                 </div>
             </div>
@@ -85,6 +85,7 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="/public/session.js?v=20260506"></script>
+    <script src="/public/home/script.js?v=20260506"></script>
 </body>
 </html>
