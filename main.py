@@ -263,10 +263,33 @@ async def home_page(request: Request, db: Session = Depends(get_db)):
     })
 
 @app.get("/perfil", response_class=HTMLResponse)
-async def perfil_page(request: Request):
+async def perfil_page(request: Request, id: Optional[int] = None, db: Session = Depends(get_db)):
+    # 1. Barreira de segurança por Cookie: Se não houver cookie válido, vai para o login
     redirect = require_authenticated_page(request)
     if redirect: return redirect
-    return templates.TemplateResponse(request, "perfil.html", {"request": request})
+
+    try:
+        current_user_id = get_current_user_id(request)
+        target_id = id if id else current_user_id
+        
+        usuario_perfil = db.query(Usuario).filter(Usuario.ID == target_id).first()
+        usuario_logado = db.query(Usuario).filter(Usuario.ID == current_user_id).first()
+
+        if not usuario_perfil or not usuario_logado:
+            return RedirectResponse(url="/home")
+
+        pode_editar = (current_user_id == target_id) or (get_user_role(usuario_logado) == "admin")
+
+        return templates.TemplateResponse(request, "perfil.html", {
+            "request": request,
+            "u": usuario_perfil,
+            "usuario_logado": usuario_logado,
+            "pode_editar": pode_editar
+        })
+    except Exception as e:
+        # Removido o redirecionamento cego. Agora o erro real aparece no terminal do Uvicorn!
+        print(f"\n❌ --- ERRO CRÍTICO DE RENDERIZAÇÃO NO JINJA2: {e} ---\n")
+        raise e
 
 # --- 7. ROTAS DE API (USUÁRIOS E AUTENTICAÇÃO) ---
 @app.get("/auth/me")

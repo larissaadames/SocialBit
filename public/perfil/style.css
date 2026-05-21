@@ -527,3 +527,55 @@ body.dark-theme {
         margin-left: 0;
     }
 }
+
+/* --- SISTEMA CENTRAL DE TOASTS (FASE 5) --- */
+#notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    background: rgba(20, 20, 20, 0.95);
+    color: #ffffff;
+    padding: 14px 24px;
+    border-radius: 6px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    min-width: 280px;
+    max-width: 400px;
+    display: flex;
+    align-items: center;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform: translateX(120%);
+    opacity: 0;
+}
+
+/* Animação de entrada do Toast */
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+/* Variações de Tipo (Neon Borders) */
+.toast.success {
+    border-left: 4px solid #00ff66;
+    box-shadow: 0 0 15px rgba(0, 255, 102, 0.15);
+}
+
+.toast.error {
+    border-left: 4px solid #ff3333;
+    box-shadow: 0 0 15px rgba(255, 51, 51, 0.15);
+}
+
+.toast.info {
+    border-left: 4px solid #7b2ff7;
+    box-shadow: 0 0 15px rgba(123, 47, 247, 0.15);
+}
