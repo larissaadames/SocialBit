@@ -1,6 +1,6 @@
 /**
- * BitSocial - Script da Home
- * Renderiza o feed dinamicamente e permite excluir apenas os posts do próprio usuário.
+ * BitSocial - Script da Home (Máquina de Estados de Votos)
+ * Renderiza o feed dinamicamente e gerencia interações persistidas via Cookies HTTP.
  */
 const APP_BASE_URL = (() => {
     const { protocol, hostname, port, origin } = window.location;
@@ -37,19 +37,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     const cancelPostButton = document.getElementById("btn-cancel-post");
     const sendPostButton = document.getElementById("btn-send-post");
     const feedScroll = document.getElementById("feed-scroll");
+
     let loggedUserId = Number(localStorage.getItem("userId") || 0);
     let loggedUsername = localStorage.getItem("username") || "usuario";
-    const token = localStorage.getItem("token");
     const MAX_POST_LENGTH = 500;
+
     const normalizeUsername = value => {
         const cleaned = String(value || "").trim().replace(/^@+/, "");
         return cleaned || "usuario";
     };
     const formatUsername = value => `@${normalizeUsername(value)}`;
+    
     const EXAMPLE_POST = {
         username: "davi cagnato",
-        conteudo:
-            "Alguem sabe como faz para debugar codigo Python no IntelliJ? Estou quebrando cabeca com breakpoints.",
+        conteudo: "Alguem sabe como faz para debugar codigo Python no IntelliJ? Estou quebrando cabeca com breakpoints.",
     };
     const LOGIN_PAGE_URL = `${APP_BASE_URL}/login`;
     let activeFeedTarget = "home";
@@ -72,6 +73,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
+    // Validação estrita de sessão por Cookie. Redireciona automaticamente se falhar.
     const sessaoAtual = await window.SocialBitSession?.renderCurrentSession({ requireAuth: true });
     if (!sessaoAtual) {
         return;
@@ -99,30 +101,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             const target = item.getAttribute("data-target");
             activeFeedTarget = target === "saved" ? "saved" : "home";
 
-            if (!postPrompt) {
-                return;
-            }
-
+            if (!postPrompt) return;
             postPrompt.style.display = activeFeedTarget === "saved" ? "none" : "flex";
 
             if (activeFeedTarget === "saved") {
                 fecharComposer();
             }
-
             carregarPosts();
         });
     });
 
     if (togglePostButton) {
         togglePostButton.addEventListener("click", () => {
-            if (!token) {
-                alert("Voce precisa estar logado para criar posts.");
-                return;
-            }
-
-            if (!postComposerForm) {
-                return;
-            }
+            if (!postComposerForm) return;
 
             if (postComposerForm.classList.contains("is-hidden")) {
                 abrirComposer();
@@ -148,11 +139,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         postComposerForm.addEventListener("submit", async event => {
             event.preventDefault();
 
-            if (!token) {
-                alert("Voce precisa estar logado para criar posts.");
-                return;
-            }
-
             const conteudo = (postContentInput?.value || "").trim();
             if (!conteudo) {
                 alert("Escreva algo antes de publicar.");
@@ -168,10 +154,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             try {
                 const response = await fetch(`${APP_BASE_URL}/posts`, {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ conteudo }),
                 });
 
@@ -191,6 +174,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         ...novoPost,
                         username: normalizeUsername(novoPost.username || loggedUsername),
                         salvo: false,
+                        voto: 0
                     });
                 }
                 fecharComposer();
@@ -221,9 +205,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (logoutTrigger && logoutModal) {
             logoutTrigger.addEventListener("click", event => {
                 event.preventDefault();
-                if (userDropdown) {
-                    userDropdown.style.display = "none";
-                }
+                if (userDropdown) userDropdown.style.display = "none";
                 logoutModal.style.display = "flex";
             });
         }
@@ -243,25 +225,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     async function carregarAvatarHeader() {
-        if (!headerAvatar) {
-            return;
-        }
-
+        if (!headerAvatar) return;
         headerAvatar.style.backgroundImage = "url('/public/img/bitPerfil.png')";
 
         try {
-            const response = await fetch(`${APP_BASE_URL}/usuarios/${loggedUserId}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-            if (!response.ok) {
-                return;
-            }
+            const response = await fetch(`${APP_BASE_URL}/usuarios/${loggedUserId}`);
+            if (!response.ok) return;
 
             const usuario = await response.json();
-            const fotoFinal =
-                usuario.foto_url && usuario.foto_url.length > 50
+            const fotoFinal = usuario.foto_url && usuario.foto_url.length > 50
                     ? usuario.foto_url
                     : "/public/img/bitPerfil.png";
 
@@ -272,27 +244,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     async function carregarPosts() {
-        if (!feedScroll) {
-            return;
-        }
+        if (!feedScroll) return;
 
         feedScroll.innerHTML = "";
         feedScroll.appendChild(
             criarMensagemFeed(
-                activeFeedTarget === "saved"
-                    ? "Carregando seus posts salvos..."
-                    : "Carregando posts...",
+                activeFeedTarget === "saved" ? "Carregando seus posts salvos..." : "Carregando posts...",
                 "feed-loading"
             )
         );
 
         try {
             const endpoint = activeFeedTarget === "saved" ? "/posts/saved" : "/posts";
-            const response = await fetch(`${APP_BASE_URL}${endpoint}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const response = await fetch(`${APP_BASE_URL}${endpoint}`);
 
             if (response.status === 401) {
                 encerrarSessaoEIrLogin("Sua sessao expirou. Faca login novamente.");
@@ -320,22 +284,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function renderizarPosts(posts) {
-        if (!feedScroll) {
-            return;
-        }
-
+        if (!feedScroll) return;
         feedScroll.innerHTML = "";
 
         if (!posts.length) {
             if (activeFeedTarget === "saved") {
-                feedScroll.appendChild(
-                    criarMensagemFeed("Nenhum post salvo ainda.", "feed-empty")
-                );
+                feedScroll.appendChild(criarMensagemFeed("Nenhum post salvo ainda.", "feed-empty"));
             } else {
-                feedScroll.appendChild(
-                    criarMensagemFeed("Nenhum post publicado ainda.", "feed-empty")
-                );
-
+                feedScroll.appendChild(criarMensagemFeed("Nenhum post publicado ainda.", "feed-empty"));
                 const exemploCard = criarCardPostExemplo();
                 feedScroll.appendChild(exemploCard);
                 configurarVotacao(exemploCard);
@@ -351,9 +307,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function adicionarPostNoTopo(post) {
-        if (!feedScroll) {
-            return;
-        }
+        if (!feedScroll) return;
 
         feedScroll.querySelectorAll(".feed-loading, .feed-empty").forEach(elemento => {
             elemento.remove();
@@ -372,45 +326,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function abrirComposer() {
-        if (!postComposerForm) {
-            return;
-        }
-
+        if (!postComposerForm) return;
         postComposerForm.classList.remove("is-hidden");
-
-        if (togglePostButton) {
-            togglePostButton.textContent = "Fechar";
-        }
-
-        if (postContentInput) {
-            postContentInput.focus();
-        }
+        if (togglePostButton) togglePostButton.textContent = "Fechar";
+        if (postContentInput) postContentInput.focus();
     }
 
     function fecharComposer() {
-        if (!postComposerForm) {
-            return;
-        }
-
+        if (!postComposerForm) return;
         postComposerForm.classList.add("is-hidden");
-
-        if (postContentInput) {
-            postContentInput.value = "";
-        }
-
-        if (postCounter) {
-            postCounter.textContent = `0/${MAX_POST_LENGTH}`;
-        }
-
-        if (togglePostButton) {
-            togglePostButton.textContent = "Postar";
-        }
+        if (postContentInput) postContentInput.value = "";
+        if (postCounter) postCounter.textContent = `0/${MAX_POST_LENGTH}`;
+        if (togglePostButton) togglePostButton.textContent = "Postar";
     }
 
     function criarCardPost(post, index) {
         const card = document.createElement("article");
         card.className = "post-card post-enter";
         card.dataset.postId = String(post.id);
+        card.dataset.userVote = String(post.voto || 0); 
         card.style.animationDelay = `${Math.min(index * 45, 260)}ms`;
 
         const header = document.createElement("header");
@@ -421,8 +355,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const avatar = document.createElement("div");
         avatar.className = "post-user-avatar";
-        const fotoAutor =
-            post.foto_url && post.foto_url.length > 50
+        const fotoAutor = post.foto_url && post.foto_url.length > 50
                 ? post.foto_url
                 : "/public/img/bitPerfil.png";
         avatar.style.backgroundImage = `url('${fotoAutor}')`;
@@ -447,7 +380,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         const menuTrigger = document.createElement("button");
         menuTrigger.type = "button";
         menuTrigger.className = "post-menu-trigger";
-        menuTrigger.setAttribute("aria-label", "Mais opcoes");
         menuTrigger.innerHTML = "&#8942;";
 
         const menuContent = document.createElement("div");
@@ -489,19 +421,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             event.stopPropagation();
             const shouldOpen = !menuWrapper.classList.contains("open");
             fecharMenusAbertos();
-            if (shouldOpen) {
-                menuWrapper.classList.add("open");
-            }
+            if (shouldOpen) menuWrapper.classList.add("open");
         });
 
-        menuContent.addEventListener("click", event => {
-            event.stopPropagation();
-        });
+        menuContent.addEventListener("click", event => event.stopPropagation());
 
         menuWrapper.appendChild(menuTrigger);
         menuWrapper.appendChild(menuContent);
         headerActions.appendChild(menuWrapper);
-
         header.appendChild(headerActions);
 
         const contentBox = document.createElement("div");
@@ -518,9 +445,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         const votes = document.createElement("div");
         votes.className = "post-votes";
         votes.innerHTML = [
-            '<div class="vote-arrow upvote" aria-label="Upvote"></div>',
-            '<span class="vote-count">0</span>',
-            '<div class="vote-arrow downvote" aria-label="Downvote"></div>'
+            `<div class="vote-arrow upvote${post.voto === 1 ? ' upvoted' : ''}" aria-label="Upvote"></div>`,
+            `<span class="vote-count">${post.votos || 0}</span>`,
+            `<div class="vote-arrow downvote${post.voto === -1 ? ' downvoted' : ''}" aria-label="Downvote"></div>`
         ].join("");
 
         const socialActions = document.createElement("div");
@@ -529,30 +456,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         const shareButton = document.createElement("button");
         shareButton.type = "button";
         shareButton.className = "post-action-btn share-action-btn";
-        shareButton.setAttribute("aria-label", "Compartilhar post");
-        shareButton.title = "Compartilhar";
         shareButton.innerHTML = "&#10548;";
-        shareButton.addEventListener("click", () => {
-            compartilharPost(post, shareButton);
-        });
+        shareButton.addEventListener("click", () => compartilharPost(post, shareButton));
 
         const saveButton = document.createElement("button");
         saveButton.type = "button";
         saveButton.className = "post-action-btn save-flag-btn";
-        saveButton.setAttribute("aria-label", "Salvar post");
         saveButton.title = post.salvo ? "Remover dos salvos" : "Salvar post";
         saveButton.setAttribute("aria-pressed", post.salvo ? "true" : "false");
-        if (post.salvo) {
-            saveButton.classList.add("is-saved");
-        }
+        if (post.salvo) saveButton.classList.add("is-saved");
         saveButton.innerHTML = "&#9873;";
-        saveButton.addEventListener("click", () => {
-            alternarPostSalvo(post.id, saveButton, card);
-        });
+        saveButton.addEventListener("click", () => alternarPostSalvo(post.id, saveButton, card));
 
         socialActions.appendChild(shareButton);
         socialActions.appendChild(saveButton);
-
         footer.appendChild(votes);
         footer.appendChild(socialActions);
 
@@ -568,12 +485,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         const downBtn = postElement.querySelector(".downvote");
         const countSpan = postElement.querySelector(".vote-count");
 
-        if (!upBtn || !downBtn || !countSpan) {
-            return;
-        }
+        if (!upBtn || !downBtn || !countSpan) return;
 
-        const baseCount = parseInt(countSpan.textContent, 10) || 0;
-        let userVote = 0;
+        let userVote = parseInt(postElement.dataset.userVote, 10) || 0;
 
         function triggerAnimation(elemento) {
             elemento.classList.remove("animating");
@@ -581,43 +495,53 @@ document.addEventListener("DOMContentLoaded", async () => {
             elemento.classList.add("animating");
         }
 
-        upBtn.addEventListener("click", () => {
+        upBtn.addEventListener("click", async () => {
             triggerAnimation(upBtn);
-            if (userVote === 1) {
-                userVote = 0;
-                upBtn.classList.remove("upvoted");
-            } else {
-                userVote = 1;
-                upBtn.classList.add("upvoted");
-                downBtn.classList.remove("downvoted");
-            }
-            atualizarContador(countSpan, baseCount, userVote);
+            const action = userVote === 1 ? "cancel" : "up"; 
+            try {
+                const res = await fetch(`${APP_BASE_URL}/posts/${postElement.dataset.postId}/votar?tipo=${action}`, { 
+                    method: "PUT" 
+                });
+                if (res.ok) {
+                    const d = await res.json();
+                    countSpan.textContent = d.votos;
+                    
+                    if (userVote === 1) {
+                        userVote = 0;
+                        upBtn.classList.remove("upvoted");
+                    } else {
+                        userVote = 1;
+                        upBtn.classList.add("upvoted");
+                        downBtn.classList.remove("downvoted");
+                    }
+                    postElement.dataset.userVote = userVote;
+                }
+            } catch(e) { console.error(e); }
         });
 
-        downBtn.addEventListener("click", () => {
+        downBtn.addEventListener("click", async () => {
             triggerAnimation(downBtn);
-            if (userVote === -1) {
-                userVote = 0;
-                downBtn.classList.remove("downvoted");
-            } else {
-                userVote = -1;
-                downBtn.classList.add("downvoted");
-                upBtn.classList.remove("upvoted");
-            }
-            atualizarContador(countSpan, baseCount, userVote);
+            const action = userVote === -1 ? "cancel" : "down";
+            try {
+                const res = await fetch(`${APP_BASE_URL}/posts/${postElement.dataset.postId}/votar?tipo=${action}`, { 
+                    method: "PUT" 
+                });
+                if (res.ok) {
+                    const d = await res.json();
+                    countSpan.textContent = d.votos;
+                    
+                    if (userVote === -1) {
+                        userVote = 0;
+                        downBtn.classList.remove("downvoted");
+                    } else {
+                        userVote = -1;
+                        downBtn.classList.add("downvoted");
+                        upBtn.classList.remove("upvoted");
+                    }
+                    postElement.dataset.userVote = userVote;
+                }
+            } catch(e) { console.error(e); }
         });
-    }
-
-    function atualizarContador(elemento, base, voto) {
-        elemento.textContent = base + voto;
-
-        if (voto === 1) {
-            elemento.style.color = "#ff4d4d";
-        } else if (voto === -1) {
-            elemento.style.color = "#7b2ff7";
-        } else {
-            elemento.style.color = "#ffffff";
-        }
     }
 
     function criarMensagemFeed(mensagem, classe) {
@@ -630,7 +554,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     function criarCardPostExemplo() {
         const card = document.createElement("article");
         card.className = "post-card post-enter";
-        card.style.animationDelay = "0ms";
 
         const header = document.createElement("header");
         header.className = "post-header";
@@ -681,19 +604,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         shareButton.type = "button";
         shareButton.className = "post-action-btn share-action-btn";
         shareButton.disabled = true;
-        shareButton.title = "Post de exemplo";
         shareButton.innerHTML = "&#10548;";
 
         const saveButton = document.createElement("button");
         saveButton.type = "button";
         saveButton.className = "post-action-btn save-flag-btn";
         saveButton.disabled = true;
-        saveButton.title = "Post de exemplo";
         saveButton.innerHTML = "&#9873;";
 
         socialActions.appendChild(shareButton);
         socialActions.appendChild(saveButton);
-
         footer.appendChild(votes);
         footer.appendChild(socialActions);
 
@@ -705,29 +625,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     async function removerPost(postId, postCard, deleteButton) {
-        if (!token) {
-            alert("Voce precisa estar logado para excluir posts.");
-            return;
-        }
-
-        const confirmar = window.confirm(
-            "Tem certeza que deseja excluir este post? Essa acao nao pode ser desfeita."
-        );
-
-        if (!confirmar) {
-            return;
-        }
+        const confirmar = window.confirm("Tem certeza que deseja excluir este post?");
+        if (!confirmar) return;
 
         deleteButton.disabled = true;
         deleteButton.classList.add("is-loading");
 
         try {
-            const response = await fetch(`${APP_BASE_URL}/posts/${postId}`, {
-                method: "DELETE",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const response = await fetch(`${APP_BASE_URL}/posts/${postId}`, { method: "DELETE" });
 
             if (response.status === 401) {
                 encerrarSessaoEIrLogin("Sua sessao expirou. Faca login novamente.");
@@ -742,48 +647,23 @@ document.addEventListener("DOMContentLoaded", async () => {
             postCard.classList.add("is-removing");
             window.setTimeout(() => {
                 postCard.remove();
-
                 if (feedScroll && !feedScroll.querySelector(".post-card")) {
-                    feedScroll.appendChild(
-                        criarMensagemFeed(
-                            activeFeedTarget === "saved"
-                                ? "Nenhum post salvo ainda."
-                                : "Nenhum post publicado ainda.",
-                            "feed-empty"
-                        )
-                    );
+                    feedScroll.appendChild(criarMensagemFeed("Nenhum post publicado ainda.", "feed-empty"));
                 }
             }, 240);
         } catch (error) {
-            console.error("Erro ao excluir post:", error);
-            alert(error.message || "Erro inesperado ao excluir o post.");
+            alert(error.message);
             deleteButton.disabled = false;
             deleteButton.classList.remove("is-loading");
         }
     }
 
     async function editarPost(post, postCard, editButton) {
-        if (!token) {
-            alert("Voce precisa estar logado para editar posts.");
-            return;
-        }
-
-        const conteudoAtual = String(post.conteudo || "");
-        const novoConteudo = window.prompt("Edite o conteudo do post:", conteudoAtual);
-        if (novoConteudo === null) {
-            return;
-        }
+        const novoConteudo = window.prompt("Edite o conteudo do post:", post.conteudo);
+        if (novoConteudo === null) return;
 
         const conteudoLimpo = novoConteudo.trim();
-        if (!conteudoLimpo) {
-            alert("O conteudo do post nao pode ser vazio.");
-            return;
-        }
-
-        if (conteudoLimpo.length > MAX_POST_LENGTH) {
-            alert(`O conteudo excede ${MAX_POST_LENGTH} caracteres.`);
-            return;
-        }
+        if (!conteudoLimpo) return;
 
         editButton.disabled = true;
         editButton.classList.add("is-loading");
@@ -791,31 +671,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             const response = await fetch(`${APP_BASE_URL}/posts/${post.id}`, {
                 method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ conteudo: conteudoLimpo }),
             });
 
             if (response.status === 401) {
-                encerrarSessaoEIrLogin("Sua sessao expirou. Faca login novamente.");
+                encerrarSessaoEIrLogin("Sua sessao expirou.");
                 return;
             }
 
-            if (!response.ok) {
-                const detail = await extrairErro(response);
-                throw new Error(detail || "Nao foi possivel editar o post.");
-            }
+            if (!response.ok) throw new Error();
 
             post.conteudo = conteudoLimpo;
             const texto = postCard.querySelector(".post-text");
-            if (texto) {
-                texto.textContent = conteudoLimpo;
-            }
+            if (texto) texto.textContent = conteudoLimpo;
         } catch (error) {
-            console.error("Erro ao editar post:", error);
-            alert(error.message || "Erro inesperado ao editar o post.");
+            alert("Erro ao editar o post.");
         } finally {
             editButton.disabled = false;
             editButton.classList.remove("is-loading");
@@ -823,20 +694,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     async function extrairErro(response) {
-        try {
-            const data = await response.json();
-            return data.detail || "";
-        } catch {
-            return "";
-        }
+        try { const data = await response.json(); return data.detail || ""; } catch { return ""; }
     }
 
     async function alternarPostSalvo(postId, saveButton, postCard) {
-        if (!token) {
-            alert("Voce precisa estar logado para salvar posts.");
-            return;
-        }
-
         const estaSalvo = saveButton.classList.contains("is-saved");
         const method = estaSalvo ? "DELETE" : "POST";
 
@@ -844,43 +705,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         saveButton.classList.add("is-loading");
 
         try {
-            const response = await fetch(`${APP_BASE_URL}/posts/${postId}/save`, {
-                method,
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const response = await fetch(`${APP_BASE_URL}/posts/${postId}/save`, { method });
 
             if (response.status === 401) {
-                encerrarSessaoEIrLogin("Sua sessao expirou. Faca login novamente.");
+                encerrarSessaoEIrLogin("Sua sessao expirou.");
                 return;
             }
 
-            if (!response.ok) {
-                const detail = await extrairErro(response);
-                throw new Error(detail || "Nao foi possivel atualizar seus salvos.");
-            }
+            if (!response.ok) throw new Error();
 
             const agoraSalvo = !estaSalvo;
             saveButton.classList.toggle("is-saved", agoraSalvo);
-            saveButton.setAttribute("aria-pressed", agoraSalvo ? "true" : "false");
             saveButton.title = agoraSalvo ? "Remover dos salvos" : "Salvar post";
 
             if (activeFeedTarget === "saved" && !agoraSalvo) {
-                postCard.classList.add("is-removing");
-                window.setTimeout(() => {
-                    postCard.remove();
-
-                    if (feedScroll && !feedScroll.querySelector(".post-card")) {
-                        feedScroll.appendChild(
-                            criarMensagemFeed("Nenhum post salvo ainda.", "feed-empty")
-                        );
-                    }
-                }, 240);
+                postCard.remove();
             }
         } catch (error) {
-            console.error("Erro ao salvar/desfazer salvo:", error);
-            alert(error.message || "Erro inesperado ao atualizar seus salvos.");
+            alert("Erro ao atualizar post salvo.");
         } finally {
             saveButton.disabled = false;
             saveButton.classList.remove("is-loading");
@@ -889,42 +731,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function compartilharPost(post, shareButton) {
         const textoCompartilhamento = `${formatUsername(post.username)}: ${post.conteudo || ""}`;
-
         try {
             if (navigator.share) {
-                await navigator.share({
-                    title: "Post do SocialBit",
-                    text: textoCompartilhamento,
-                });
+                await navigator.share({ title: "Post do SocialBit", text: textoCompartilhamento });
                 return;
             }
-
             await copiarTexto(textoCompartilhamento);
             shareButton.classList.add("is-shared");
-            window.setTimeout(() => {
-                shareButton.classList.remove("is-shared");
-            }, 900);
+            window.setTimeout(() => shareButton.classList.remove("is-shared"), 900);
         } catch (error) {
-            if (error && error.name === "AbortError") {
-                return;
-            }
-
-            console.error("Erro ao compartilhar:", error);
-            alert("Nao foi possivel compartilhar este post agora.");
+            console.error(error);
         }
     }
 
     async function copiarTexto(texto) {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(texto);
-            return;
-        }
-
         const textarea = document.createElement("textarea");
         textarea.value = texto;
-        textarea.setAttribute("readonly", "readonly");
         textarea.style.position = "fixed";
-        textarea.style.top = "-1000px";
         document.body.appendChild(textarea);
         textarea.select();
         document.execCommand("copy");
@@ -932,65 +755,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function fecharMenusAbertos() {
-        document.querySelectorAll(".post-menu-wrapper.open").forEach(menu => {
-            menu.classList.remove("open");
-        });
-    }
-
-    async function validarSessao() {
-        if (!token || !loggedUserId) {
-            encerrarSessaoEIrLogin();
-            return false;
-        }
-
-        try {
-            const response = await fetch(`${APP_BASE_URL}/auth/me`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            if (response.status === 401) {
-                encerrarSessaoEIrLogin("Sua sessao expirou. Faca login novamente.");
-                return false;
-            }
-
-            if (!response.ok) {
-                console.error("Falha ao validar sessao na Home.");
-                return true;
-            }
-
-            const sessao = await response.json();
-            if (sessao?.id) {
-                localStorage.setItem("userId", String(sessao.id));
-            }
-            if (sessao?.username) {
-                localStorage.setItem("username", sessao.username);
-            }
-
-            return true;
-        } catch (error) {
-            console.error("Erro ao validar sessao na Home:", error);
-            return true;
-        }
+        document.querySelectorAll(".post-menu-wrapper.open").forEach(menu => menu.classList.remove("open"));
     }
 
     function encerrarSessaoEIrLogin(mensagem = "") {
-        localStorage.removeItem("token");
-        localStorage.removeItem("userId");
-        localStorage.removeItem("username");
-
-        if (mensagem) {
-            alert(mensagem);
-        }
-
+        localStorage.clear();
+        document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        if (mensagem) alert(mensagem);
         window.location.href = LOGIN_PAGE_URL;
     }
 
     function configurarBuscaUsuarios() {
-        if (!searchInput || !searchResults) {
-            return;
-        }
+        if (!searchInput || !searchResults) return;
 
         searchInput.addEventListener("input", () => {
             const termo = searchInput.value.trim();
@@ -1001,72 +777,32 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
-            searchDebounceTimer = window.setTimeout(() => {
-                buscarUsuarios(termo);
-            }, 260);
+            searchDebounceTimer = window.setTimeout(() => buscarUsuarios(termo), 260);
         });
 
         searchInput.addEventListener("focus", () => {
-            if (searchResults.children.length > 0) {
-                searchResults.classList.add("is-visible");
-            }
-        });
-
-        searchInput.addEventListener("keydown", event => {
-            if (event.key === "Escape") {
-                ocultarResultadosBusca();
-                searchInput.blur();
-                return;
-            }
-
-            if (event.key === "Enter") {
-                const primeiroResultado = searchResults.querySelector(".search-result-item");
-                if (primeiroResultado) {
-                    event.preventDefault();
-                    primeiroResultado.click();
-                }
-            }
+            if (searchResults.children.length > 0) searchResults.classList.add("is-visible");
         });
     }
 
     async function buscarUsuarios(termo) {
-        if (!searchResults) {
-            return;
-        }
-
+        if (!searchResults) return;
         const requestId = ++lastSearchRequestId;
 
         try {
-            const response = await fetch(
-                `${APP_BASE_URL}/usuarios/busca?username=${encodeURIComponent(termo)}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
-
-            if (requestId !== lastSearchRequestId) {
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error("Falha ao buscar usuarios");
-            }
+            const response = await fetch(`${APP_BASE_URL}/usuarios/busca?username=${encodeURIComponent(termo)}`);
+            if (requestId !== lastSearchRequestId) return;
+            if (!response.ok) throw new Error();
 
             const usuarios = await response.json();
             renderizarResultadosBusca(Array.isArray(usuarios) ? usuarios : []);
         } catch (error) {
-            console.error("Erro na busca de usuarios:", error);
             renderizarResultadosBusca([]);
         }
     }
 
     function renderizarResultadosBusca(usuarios) {
-        if (!searchResults) {
-            return;
-        }
-
+        if (!searchResults) return;
         searchResults.innerHTML = "";
 
         if (!usuarios.length) {
@@ -1087,21 +823,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                 `<span class="search-result-name">${(usuario.nome || "")} ${(usuario.sobrenome || "")}</span>`,
             ].join("");
 
-            item.addEventListener("click", () => {
-                window.location.href = `/perfil?id=${usuario.id}`;
-            });
-
+            item.addEventListener("click", () => { window.location.href = `/perfil?id=${usuario.id}`; });
             searchResults.appendChild(item);
         });
-
         searchResults.classList.add("is-visible");
     }
 
     function ocultarResultadosBusca() {
-        if (!searchResults) {
-            return;
-        }
-
+        if (!searchResults) return;
         searchResults.classList.remove("is-visible");
         searchResults.innerHTML = "";
     }

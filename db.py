@@ -3,7 +3,7 @@ import pymysql
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "root",
+    "password": "1234",
     "database": "SocialBit",
     "cursorclass": pymysql.cursors.DictCursor # Adicionado para facilitar a leitura dos dados
 }

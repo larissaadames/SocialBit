@@ -1,137 +1,78 @@
+/**
+ * BitSocial - Script de Login (Versão Blindada)
+ * Intercepta o formulário por tags nativas para evitar incompatibilidade de IDs.
+ */
 const APP_BASE_URL = (() => {
-  const { protocol, hostname, port, origin } = window.location;
-  const isLocalhost = hostname === "127.0.0.1" || hostname === "localhost";
+    const { protocol, hostname, port, origin } = window.location;
+    const isLocalhost = hostname === "127.0.0.1" || hostname === "localhost";
 
-  if (protocol === "file:") {
-    return "http://127.0.0.1:8000";
-  }
-
-  if (isLocalhost && port !== "8000") {
-    return "http://127.0.0.1:8000";
-  }
-
-  return origin;
+    if (protocol === "file:") return "http://127.0.0.1:8000";
+    if (isLocalhost && port !== "8000") return "http://127.0.0.1:8000";
+    return origin;
 })();
 
-async function lerResposta(response) {
-  const texto = await response.text();
-
-  try {
-    return texto ? JSON.parse(texto) : {};
-  } catch {
-    return { detail: texto || "Erro inesperado no servidor." };
-  }
-}
-
-const notificationContainer = document.getElementById("notification-container");
-
-function showNotification(message, type = "error") {
-  if (!notificationContainer) return;
-
-  const toast = document.createElement("div");
-  toast.className = `toast ${type}`;
-  toast.textContent = message;
-  notificationContainer.appendChild(toast);
-
-  setTimeout(() => {
-    toast.style.opacity = "0";
-    setTimeout(() => toast.remove(), 500);
-  }, 4000);
-}
-
-function togglePassword() {
-  const input = document.getElementById("password");
-  const eyeBtn = event.currentTarget; 
-
-  if (input.type === "password") {
-    input.type = "text";
-    eyeBtn.textContent = "👁";
-  } else {
-    input.type = "password";
-    eyeBtn.textContent = "👁";
-  }
-  
-  input.focus();
-}
-
-// Animação do fundo geométrico
-const bg = document.querySelector(".bg-geo");
-if (bg) {
-    window.addEventListener("mousemove", (e) => {
-      const x = e.clientX / window.innerWidth;
-      const y = e.clientY / window.innerHeight;
-      const moveX = (x - 0.5) * -40;
-      const moveY = (y - 0.5) * -40;
-      bg.style.transform = `translate(${moveX}px, ${moveY}px)`;
-    });
-}
-
-const loginForm = document.querySelector("form");
-
 document.addEventListener("DOMContentLoaded", () => {
-  window.SocialBitSession?.renderCurrentSession();
+    // Busca o formulário por ID ou pega a tag <form> da página para garantir a captura
+    const loginForm = document.getElementById("login-form") || document.querySelector("form");
+    
+    // Busca os inputs por tipo ou nome (atende 'senha', 'password', 'email')
+    const emailInput = document.querySelector('input[type="email"]') || document.getElementById("email");
+    const senhaInput = document.querySelector('input[type="password"]') || document.getElementById("senha") || document.getElementById("password");
+    const btnSubmit = document.querySelector('button[type="submit"]') || document.getElementById("btn-submit");
+
+    if (loginForm) {
+        loginForm.addEventListener("submit", async (event) => {
+            // INTERCEPTAÇÃO IMEDIATA: Impede o recarregamento (F5) na primeira linha!
+            event.preventDefault();
+
+            const email = (emailInput?.value || "").trim();
+            const senha = (senhaInput?.value || "").trim();
+
+            if (!email || !senha) {
+                alert("Por favor, preencha todos os campos.");
+                return;
+            }
+
+            if (btnSubmit) {
+                btnSubmit.disabled = true;
+                btnSubmit.textContent = "A entrar...";
+            }
+
+            try {
+                const response = await fetch(`${APP_BASE_URL}/login`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ email, senha }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || "E-mail ou senha incorretos.");
+                }
+
+                const data = await response.json();
+
+                // Salva o contexto básico de exibição exigido pelo front-end
+                localStorage.setItem("userId", String(data.id));
+                localStorage.setItem("username", String(data.username));
+                localStorage.setItem("perfil", String(data.perfil || "usuario"));
+
+                // Redireciona de forma limpa para o feed
+                window.location.href = "/home";
+
+            } catch (error) {
+                console.error("Erro ao fazer login:", error);
+                alert(error.message || "Erro inesperado ao realizar o login.");
+                
+                if (btnSubmit) {
+                    btnSubmit.disabled = false;
+                    btnSubmit.textContent = "Entrar";
+                }
+            }
+        });
+    } else {
+        console.error("Erro: Nenhum elemento de formulario encontrado na pagina de login.");
+    }
 });
-
-if (loginForm) {
-  loginForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    const emailInput = document.getElementById("email");
-    const passwordInput = document.getElementById("password");
-
-    // Captura os valores no exato momento do envio
-    const email = emailInput ? emailInput.value.trim() : "";
-    const senha = passwordInput ? passwordInput.value : "";
-
-    // Validação de segurança antes de chamar a API
-    if (!email || !senha) {
-      showNotification("Por favor, preencha todos os campos.", "error");
-      return;
-    }
-
-    try {
-      const response = await fetch(`${APP_BASE_URL}/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: email, senha: senha }),
-      });
-
-      const data = await lerResposta(response);
-
-      if (response.ok) {
-        showNotification("Login realizado com sucesso!", "success");
-
-        // Persistência dos dados da sessão
-        const accessToken = data.access_token || data.token;
-        if (accessToken) localStorage.setItem("token", accessToken);
-        
-        localStorage.setItem("userId", data.id);
-        localStorage.setItem("username", data.username);
-        if (data.perfil) localStorage.setItem("perfil", data.perfil);
-        if (data.foto_url) localStorage.setItem("foto_url", data.foto_url);
-        
-        // Redirecionamento para o perfil após um pequeno delay para mostrar o brinde
-        setTimeout(() => {
-          window.location.href = `${APP_BASE_URL}/perfil`;
-        }, 1000);
-        
-      } else {
-        showNotification(
-          data.detail || "E-mail ou senha incorretos.",
-          "error"
-        );
-      }
-    } catch (error) {
-      console.error("Erro ao conectar com a API:", error);
-      showNotification("Erro no servidor. Verifique se o backend está ativo.", "error");
-    }
-  });
-}
-
-// const token = localStorage.getItem("token");
-
-// if (!token) {
-//   window.location.href = `${APP_BASE_URL}/public/Login/login.html`;
-// }

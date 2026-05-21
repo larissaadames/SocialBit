@@ -1,4 +1,21 @@
-const APP_BASE_URL = "http://127.0.0.1:8000";
+/**
+ * BitSocial - Script do Perfil
+ * Gerencia a visualização, edição e exclusão de contas utilizando Cookies HTTP.
+ */
+const APP_BASE_URL = (() => {
+    const { protocol, hostname, port, origin } = window.location;
+    const isLocalhost = hostname === "127.0.0.1" || hostname === "localhost";
+
+    if (protocol === "file:") {
+        return "http://127.0.0.1:8000";
+    }
+
+    if (isLocalhost && port !== "8000") {
+        return "http://127.0.0.1:8000";
+    }
+
+    return origin;
+})();
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. GESTÃO DE CONTEXTO E VARIÁVEIS GLOBAIS
@@ -73,53 +90,65 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // --- 4. LOGOUT ---
-    headerAvatar.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isVisible = dropdown.style.display === 'flex';
-        dropdown.style.display = isVisible ? 'none' : 'flex';
-    });
+    if (headerAvatar) {
+        headerAvatar.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = dropdown.style.display === 'flex';
+            dropdown.style.display = isVisible ? 'none' : 'flex';
+        });
+    }
 
     document.addEventListener('click', () => { if(dropdown) dropdown.style.display = 'none'; });
 
-    document.getElementById('btn-logout-trigger').addEventListener('click', () => {
-        logoutModal.style.display = 'flex';
-    });
+    const logoutTrigger = document.getElementById('btn-logout-trigger');
+    if (logoutTrigger) {
+        logoutTrigger.addEventListener('click', () => {
+            logoutModal.style.display = 'flex';
+        });
+    }
 
-    document.getElementById('cancel-logout').addEventListener('click', () => {
-        logoutModal.style.display = 'none';
-    });
+    const cancelLogout = document.getElementById('cancel-logout');
+    if (cancelLogout) {
+        cancelLogout.addEventListener('click', () => {
+            logoutModal.style.display = 'none';
+        });
+    }
 
-    document.getElementById('confirm-logout').addEventListener('click', () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('userId');
-        localStorage.removeItem('username');
-        localStorage.removeItem('perfil');
-        window.location.href = "/login";
-    });
+    const confirmLogout = document.getElementById('confirm-logout');
+    if (confirmLogout) {
+        confirmLogout.addEventListener('click', () => {
+            localStorage.clear();
+            // Remove o cookie limpando o valor passado pelo navegador
+            document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            window.location.href = "/login";
+        });
+    }
 
     // 5. MÁSCARA TELEFONE E REGEXES
-    inputTelefone.addEventListener('input', (e) => {
-        let v = e.target.value.replace(/\D/g, '');
-        if (v.length > 11) v = v.substring(0, 11);
-        let r = v.replace(/^(\d{2})(\d)/g, '($1) $2');
-        r = r.replace(/(\d{5})(\d)/, '$1-$2');
-        e.target.value = r;
-    });
-    
+    if (inputTelefone) {
+        inputTelefone.addEventListener('input', (e) => {
+            let v = e.target.value.replace(/\D/g, '');
+            if (v.length > 11) v = v.substring(0, 11);
+            let r = v.replace(/^(\d{2})(\d)/g, '($1) $2');
+            r = r.replace(/(\d{5})(\d)/, '$1-$2');
+            e.target.value = r;
+        });
+    }
 
     // 6. LÓGICA DE BUSCA
     const searchInput = document.getElementById("search-bar");
     const resultsBox = document.getElementById("search-results");
-    if (searchInput) {
+    if (searchInput && resultsBox) {
         searchInput.addEventListener("input", async () => {
             const termo = searchInput.value.trim();
             if (termo.length < 2) { resultsBox.style.display = "none"; return; }
             try {
-                const res = await fetch(`${APP_BASE_URL}/usuarios/busca?username=${encodeURIComponent(termo)}`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
+                const headers = {};
+                if (token && token !== "null" && token !== "undefined") {
+                    headers["Authorization"] = `Bearer ${token}`;
+                }
+
+                const res = await fetch(`${APP_BASE_URL}/usuarios/busca?username=${encodeURIComponent(termo)}`, { headers });
                 const usuarios = await res.json();
                 resultsBox.innerHTML = usuarios.map(u => `
                     <div class="search-item" onclick="window.location.href='/perfil?id=${u.id}'">
@@ -135,15 +164,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- 7. CARREGAR HEADER ---
     const carregarHeader = async () => {
         try {
-            const res = await fetch(`${APP_BASE_URL}/usuarios/${loggedUserId}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const headers = {};
+            if (token && token !== "null" && token !== "undefined") {
+                headers["Authorization"] = `Bearer ${token}`;
+            }
+
+            const res = await fetch(`${APP_BASE_URL}/usuarios/${loggedUserId}`, { headers });
             if (res.ok) {
                 const u = await res.json();
                 const foto = (u.foto_url && u.foto_url.length > 50) ? u.foto_url : '/public/img/bitPerfil.png';
-                headerAvatar.style.backgroundImage = `url('${foto}')`;
+                if (headerAvatar) {
+                    headerAvatar.style.backgroundImage = `url('${foto}')`;
+                }
             }
         } catch (e) { console.error(e); }
     };
@@ -151,11 +183,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- 8. CARREGAR PERFIL ---
     const carregarPerfil = async () => {
         try {
-            const res = await fetch(`${APP_BASE_URL}/usuarios/${userIdToFetch}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const headers = {};
+            if (token && token !== "null" && token !== "undefined") {
+                headers["Authorization"] = `Bearer ${token}`;
+            }
+
+            const res = await fetch(`${APP_BASE_URL}/usuarios/${userIdToFetch}`, { headers });
             if (!res.ok) throw new Error();
             const u = await res.json();
 
@@ -166,15 +199,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('display-dtNasc').textContent = u.dtNasc ? `🎂 ${u.dtNasc}` : "";
 
             const fotoPerfil = (u.foto_url && u.foto_url.length > 50) ? u.foto_url : '/public/img/bitPerfil.png';
-            displayAvatar.style.backgroundImage = `url('${fotoPerfil}')`;
+            if (displayAvatar) {
+                displayAvatar.style.backgroundImage = `url('${fotoPerfil}')`;
+            }
 
             if (userIdToFetch == loggedUserId || isAdmin) {
-                document.getElementById('btn-edit-perfil').style.display = 'block';
-                document.getElementById('edit-nome').value = u.nome;
-                document.getElementById('edit-sobrenome').value = u.sobrenome;
-                document.getElementById('edit-bio').value = u.bio || "";
-                document.getElementById('edit-telefone').value = u.telefone || "";
-                document.getElementById('edit-dtNasc').value = u.dtNasc || "";
+                const editBtn = document.getElementById('btn-edit-perfil');
+                if (editBtn) editBtn.style.display = 'block';
+                
+                const editNome = document.getElementById('edit-nome');
+                const editSobrenome = document.getElementById('edit-sobrenome');
+                const editBio = document.getElementById('edit-bio');
+                
+                if (editNome) editNome.value = u.nome;
+                if (editSobrenome) editSobrenome.value = u.sobrenome;
+                if (editBio) editBio.value = u.bio || "";
+                if (inputTelefone) inputTelefone.value = u.telefone || "";
+                if (inputDataNasc) inputDataNasc.value = u.dtNasc || "";
             }
         } catch (e) { showNotification("Erro ao carregar dados.", "error"); }
     };
@@ -185,8 +226,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sobrenome = document.getElementById('edit-sobrenome').value.trim();
         const regexNome = /^[A-Za-zÀ-ÿ\s]{2,25}$/;
         const regexSobrenome = /^[A-Za-zÀ-ÿ\s]{2,50}$/;
-        const telefoneVal = inputTelefone.value.trim();
-        const dtNascVal = inputDataNasc.value;
+        const telefoneVal = inputTelefone ? inputTelefone.value.trim() : "";
+        const dtNascVal = inputDataNasc ? inputDataNasc.value : "";
         
         if (!regexNome.test(nome)) {
             showNotification("O nome deve ter entre 2 e 25 letras (sem números ou símbolos).", "error");
@@ -221,8 +262,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const originalText = btnSalvar.textContent;
         btnSalvar.disabled = true;
         btnSalvar.textContent = "Salvando...";
-        btnCancelar.style.pointerEvents = "none";
-        btnCancelar.style.opacity = "0.5";
+        if (btnCancelar) {
+            btnCancelar.style.pointerEvents = "none";
+            btnCancelar.style.opacity = "0.5";
+        }
 
         const dados = {
             id: parseInt(userIdToFetch),
@@ -235,12 +278,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (token && token !== "null" && token !== "undefined") {
+                headers["Authorization"] = `Bearer ${token}`;
+            }
+
             const res = await fetch(`${APP_BASE_URL}/usuarios/update`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: headers,
                 body: JSON.stringify(dados)
             });
 
@@ -256,71 +301,110 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // REATIVA BOTÕES EM CASO DE ERRO
                 btnSalvar.disabled = false;
                 btnSalvar.textContent = originalText;
-                btnCancelar.style.pointerEvents = "auto";
-                btnCancelar.style.opacity = "1";
+                if (btnCancelar) {
+                    btnCancelar.style.pointerEvents = "auto";
+                    btnCancelar.style.opacity = "1";
+                }
             }
         } catch (e) { 
             showNotification("Erro de conexão.", "error");
             btnSalvar.disabled = false;
             btnSalvar.textContent = originalText;
-            btnCancelar.style.pointerEvents = "auto";
-            btnCancelar.style.opacity = "1";
+            if (btnCancelar) {
+                btnCancelar.style.pointerEvents = "auto";
+                btnCancelar.style.opacity = "1";
+            }
         }
     };
 
     // --- 10. UPLOAD DE FOTO (APENAS PREVIEW) ---
-    document.getElementById('avatar-wrapper').addEventListener('click', () => {
-        if (userIdToFetch == loggedUserId) document.getElementById('file-input').click();
-    });
+    const avatarWrapper = document.getElementById('avatar-wrapper');
+    if (avatarWrapper) {
+        avatarWrapper.addEventListener('click', () => {
+            if (userIdToFetch == loggedUserId) {
+                const fileInput = document.getElementById('file-input');
+                if (fileInput) fileInput.click();
+            }
+        });
+    }
 
-    document.getElementById('file-input').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    const fileInputEl = document.getElementById('file-input');
+    if (fileInputEl) {
+        fileInputEl.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            const base64 = ev.target.result;
-            // Apenas atualiza a imagem na tela para a pessoa ver como ficou
-            displayAvatar.style.backgroundImage = `url('${base64}')`;
-            headerAvatar.style.backgroundImage = `url('${base64}')`;
-            
-            // Guarda na variável para mandar pro servidor apenas no botão "Salvar"
-            fotoPendente = base64; 
-        };
-        reader.readAsDataURL(file);
-    });
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const base64 = ev.target.result;
+                // Apenas atualiza a imagem na tela para a pessoa ver como ficou
+                if (displayAvatar) displayAvatar.style.backgroundImage = `url('${base64}')`;
+                if (headerAvatar) headerAvatar.style.backgroundImage = `url('${base64}')`;
+                
+                // Guarda na variável para mandar pro servidor apenas no botão "Salvar"
+                fotoPendente = base64; 
+            };
+            reader.readAsDataURL(file);
+        });
+    }
 
     // Ao clicar em Salvar Alterações, ele puxa a função que pega a fotoPendente e envia tudo
-    btnSalvar.addEventListener('click', () => salvarAlteracoes());
+    if (btnSalvar) {
+        btnSalvar.addEventListener('click', () => salvarAlteracoes());
+    }
     
-    document.getElementById('btn-edit-perfil').addEventListener('click', () => {
-        document.getElementById('view-mode').style.display = 'none';
-        document.getElementById('edit-mode').style.display = 'block';
-        document.getElementById('avatar-wrapper').classList.add('modo-edicao');
-    });
+    const editPerfilBtn = document.getElementById('btn-edit-perfil');
+    if (editPerfilBtn) {
+        editPerfilBtn.addEventListener('click', () => {
+            document.getElementById('view-mode').style.display = 'none';
+            document.getElementById('edit-mode').style.display = 'block';
+            if (avatarWrapper) avatarWrapper.classList.add('modo-edicao');
+        });
+    }
 
-    btnCancelar.addEventListener('click', () => window.location.reload());
+    if (btnCancelar) {
+        btnCancelar.addEventListener('click', () => window.location.reload());
+    }
 
     // --- 11. ELIMINAÇÃO ---
     const deleteModal = document.getElementById('delete-modal');
-    document.getElementById('delete-account-btn').addEventListener('click', () => {
-        deleteModal.style.display = 'flex';
-    });
-    document.getElementById('cancel-delete').addEventListener('click', () => {
-        deleteModal.style.display = 'none';
-    });
-    document.getElementById('confirm-delete').addEventListener('click', async () => {
-        const res = await fetch(`${APP_BASE_URL}/usuarios/${userIdToFetch}`, {
-            method: 'DELETE',
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
+    const deleteAccountBtn = document.getElementById('delete-account-btn');
+    if (deleteAccountBtn) {
+        deleteAccountBtn.addEventListener('click', () => {
+            deleteModal.style.display = 'flex';
         });
-        if (res.ok) {
-            localStorage.clear();
-            window.location.href = "/login";
-        }
-    });
+    }
+    
+    const cancelDeleteBtn = document.getElementById('cancel-delete');
+    if (cancelDeleteBtn) {
+        cancelDeleteBtn.addEventListener('click', () => {
+            deleteModal.style.display = 'none';
+        });
+    }
+    
+    const confirmDeleteBtn = document.getElementById('confirm-delete');
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', async () => {
+            try {
+                const headers = {};
+                if (token && token !== "null" && token !== "undefined") {
+                    headers["Authorization"] = `Bearer ${token}`;
+                }
+
+                const res = await fetch(`${APP_BASE_URL}/usuarios/${userIdToFetch}`, {
+                    method: 'DELETE',
+                    headers: headers
+                });
+                if (res.ok) {
+                    localStorage.clear();
+                    document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                    window.location.href = "/login";
+                }
+            } catch (e) {
+                console.error("Erro ao deletar conta:", e);
+            }
+        });
+    }
 
     carregarHeader();
     carregarPerfil();  

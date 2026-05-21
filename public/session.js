@@ -1,3 +1,7 @@
+/**
+ * BitSocial - Gestor Central de Sessão (Cookies Native)
+ * Valida o estado de autenticação comunicando diretamente com o servidor.
+ */
 const SocialBitSession = (() => {
   const APP_BASE_URL = (() => {
     const { protocol, hostname, port, origin } = window.location;
@@ -17,15 +21,11 @@ const SocialBitSession = (() => {
   const BADGE_ID = "session-context";
   const LOGIN_URL = `${APP_BASE_URL}/login`;
 
-  function getToken() {
-    return localStorage.getItem("token");
-  }
-
   function clearSession() {
-    localStorage.removeItem("token");
     localStorage.removeItem("userId");
     localStorage.removeItem("username");
     localStorage.removeItem("perfil");
+    localStorage.removeItem("foto_url");
   }
 
   function normalizePerfil(perfil) {
@@ -111,27 +111,15 @@ const SocialBitSession = (() => {
 
   async function renderCurrentSession(options = {}) {
     const { requireAuth = false } = options;
-    const token = getToken();
-
-    if (!token) {
-      hideBadge();
-      if (requireAuth) {
-        clearSession();
-        window.location.href = LOGIN_URL;
-      }
-      return null;
-    }
 
     if (!shouldShowBadge()) {
       hideBadge();
     }
 
     try {
-      const response = await fetch(`${APP_BASE_URL}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // Disparamos o fetch diretamente sem cabeçalhos manuais.
+      // O navegador anexa o Cookie HTTP automaticamente a cada chamada de rota.
+      const response = await fetch(`${APP_BASE_URL}/auth/me`);
 
       if (response.status === 401) {
         clearSession();
