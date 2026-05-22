@@ -61,45 +61,80 @@ body {
     position: relative;
 }
 
-/* Sistema de notificacao no padrao do perfil */
+/* --- FOLHA UNIFICADA E PADRONIZADA DE TOASTS (SUPERIOR DIREITO) --- */
 #notification-container {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 9999;
-  display: flex;
+  position: fixed !important;
+  top: 24px !important;
+  right: 24px !important;
+  bottom: auto !important;
+  left: auto !important;
+  display: flex !important;
   flex-direction: column;
-  gap: 10px;
-  width: min(360px, calc(100vw - 32px));
+  gap: 12px;
+  pointer-events: none;
+  z-index: 9999;
 }
 
 .toast {
-  padding: 16px 20px;
+  background-color: #1e1e1e;
+  color: #ffffff;
+  padding: 14px 24px;
   border-radius: 10px;
-  color: #fff;
+  font-family: "Orbitron", sans-serif;
   font-weight: 700;
   font-size: 14px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
-  border-left: 6px solid rgba(255, 255, 255, 0.4);
-  animation: toastSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  letter-spacing: 0.5px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: 420px;
+  
+  /* Estado Inicial Oculto */
+  opacity: 0;
+  transform: translateX(120%);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.25), opacity 0.3s ease;
 }
 
+/* Transição de Entrada */
+.toast.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Configurações Temáticas de Cores Sólidas */
 .toast.success {
-  background-color: var(--success-green);
+  background-color: #1b5e20 !important; /* Fundo Verde Sólido */
+  border-left: 4px solid #00ff66 !important; /* Linha Neon */
+  box-shadow: 0 0 15px rgba(0, 255, 102, 0.15);
 }
 
 .toast.error {
-  background-color: var(--error-red);
+  background-color: #8b0000 !important; /* Fundo Vermelho Sólido */
+  border-left: 4px solid #ff4d4d !important; /* Linha Neon */
+  box-shadow: 0 0 15px rgba(255, 77, 77, 0.15);
 }
 
-@keyframes toastSlideIn {
-  from {
-    transform: translateX(120%);
-    opacity: 0;
+.toast.info {
+  background-color: #0056b3 !important; /* Fundo Azul Sólido */
+  border-left: 4px solid #00a2ff !important; /* Linha Neon */
+  box-shadow: 0 0 15px rgba(0, 162, 255, 0.15);
+}
+
+/* Responsividade Adaptativa */
+@media (max-width: 480px) {
+  #notification-container {
+    top: 12px !important;
+    right: 12px !important;
+    left: 12px !important;
+    width: calc(100% - 24px);
   }
-  to {
-    transform: translateX(0);
-    opacity: 1;
+  .toast {
+    min-width: 0;
+    width: 100%;
+    transform: translateY(-20px);
+  }
+  .toast.show {
+    transform: translateY(0);
   }
 }
 

@@ -15,17 +15,24 @@ async function lerResposta(response) {
   try { return texto ? JSON.parse(texto) : {}; } catch { return { detail: texto || "Erro inesperado." }; }
 }
 
-const notificationContainer = document.getElementById("notification-container");
-
-function showNotification(message, type = "error") {
-  if (!notificationContainer) return;
+/* --- ENGINE CENTRAL DE NOTIFICAÇÕES TOAST (PADRONIZADA) --- */
+function showToast(message, type = "success") {
+  let container = document.getElementById("notification-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "notification-container";
+    document.body.appendChild(container);
+  }
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
-  toast.textContent = message;
-  notificationContainer.appendChild(toast);
+  const icon = type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ';
+  toast.textContent = icon + message;
+  container.appendChild(toast);
+
+  setTimeout(() => toast.classList.add('show'), 50);
   setTimeout(() => {
-    toast.style.opacity = "0";
-    setTimeout(() => toast.remove(), 500);
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
   }, 4000);
 }
 
@@ -185,30 +192,30 @@ if (cadastroForm) {
         primeiroCampoInvalido.focus();
         primeiroCampoInvalido.classList.add("input-invalid");
         setTimeout(() => primeiroCampoInvalido.classList.remove("input-invalid"), 1200);
-        showNotification(getMensagemCampoInvalido(primeiroCampoInvalido), "error");
+        showToast(getMensagemCampoInvalido(primeiroCampoInvalido), "error");
         return;
       }
 
       const dtNascVal = dataNascimentoInput ? dataNascimentoInput.value : "";
       if (!dtNascVal) {
-          showNotification("A data de nascimento é obrigatória.", "error");
+          showToast("A data de nascimento é obrigatória.", "error");
           return;
       }
 
       const dataDigitada = new Date(dtNascVal);
       if (dataDigitada > dataMinima16) {
-          showNotification("Você precisa ter pelo menos 16 anos.", "error");
+          showToast("Você precisa ter pelo menos 16 anos.", "error");
           return;
       }
       if (dataDigitada < dataMaxima140) {
-          showNotification("Ano de nascimento inválido. Verifique a digitação.", "error");
+          showToast("Ano de nascimento inválido. Verifique a digitação.", "error");
           return;
       }
 
       const telValue = telefoneInput ? telefoneInput.value.trim() : "";
       const regexTel = /^\(\d{2}\)\s\d{4,5}-\d{4}$/;
       if (!regexTel.test(telValue)) {
-        showNotification("Telefone inválido", "error");
+        showToast("Telefone inválido", "error");
         return;
       }
 
@@ -222,14 +229,14 @@ if (cadastroForm) {
       const isSymbolValid = /[@$!%*?&]/.test(s1);
 
       if (!isLenValid || !isUpperValid || !isLowerValid || !isNumValid || !isSymbolValid) {
-        showNotification("A senha não cumpre todos os requisitos de segurança.", "error");
+        showToast("A senha não cumpre todos os requisitos de segurança.", "error");
         if (senhaInput) senhaInput.focus();
         if (regrasValidacao) regrasValidacao.classList.add("show");
         return;
       }
 
       if (s1 !== s2) {
-        showNotification("As senhas não coincidem!", "error");
+        showToast("As senhas não coincidem!", "error");
         if (senhaConfirmarInput) senhaConfirmarInput.focus();
         return;
       }
@@ -259,19 +266,19 @@ if (cadastroForm) {
         const data = await lerResposta(response);
 
         if (response.ok) {
-          showNotification("Usuário cadastrado com sucesso!", "success");
+          showToast("Usuário cadastrado com sucesso!", "success");
           setTimeout(() => {
             window.location.href = `${APP_BASE_URL}/login`;
           }, 900);
         } else {
-          showNotification("Erro no cadastro: " + (data.detail || "Verifique os campos."), "error");
+          showToast("Erro no cadastro: " + (data.detail || "Verifique os campos."), "error");
           if (btnSubmit) {
             btnSubmit.disabled = false;
             btnSubmit.textContent = "Criar Conta";
           }
         }
       } catch (error) {
-        showNotification("Erro de conexão com o servidor.", "error");
+        showToast("Erro de conexão com o servidor.", "error");
         if (btnSubmit) {
           btnSubmit.disabled = false;
           btnSubmit.textContent = "Criar Conta";

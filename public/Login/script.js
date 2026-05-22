@@ -9,6 +9,27 @@ const APP_BASE_URL = (() => {
     return origin;
 })();
 
+/* --- ENGINE CENTRAL DE NOTIFICAÇÕES TOAST (PADRONIZADA) --- */
+function showToast(message, type = "success") {
+  let container = document.getElementById("notification-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "notification-container";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  const icon = type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ';
+  toast.textContent = icon + message;
+  container.appendChild(toast);
+
+  setTimeout(() => toast.classList.add('show'), 50);
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 4000);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const loginForm = document.getElementById("login-form") || document.querySelector("form");
     const emailInput = document.querySelector('input[type="email"]') || document.getElementById("email");
@@ -41,7 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const senha = senhaInput?.value || "";
 
             if (!email || !senha) {
-                alert("Por favor, preencha todos os campos.");
+                showToast("Por favor, preencha todos os campos.", "error");
                 return;
             }
 
@@ -68,11 +89,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 localStorage.setItem("username", String(data.username));
                 localStorage.setItem("perfil", String(data.perfil || "usuario"));
 
-                window.location.href = "/home";
+                showToast("Sessão iniciada com sucesso! A redirecionar...", "success");
+                
+                setTimeout(() => {
+                    window.location.href = "/home";
+                }, 900);
 
             } catch (error) {
                 console.error(error);
-                alert(error.message || "Erro inesperado ao realizar o login.");
+                showToast(error.message || "Erro inesperado ao realizar o login.", "error");
                 if (btnSubmit) {
                     btnSubmit.disabled = false;
                     btnSubmit.textContent = "Log in";
