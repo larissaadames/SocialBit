@@ -9,6 +9,27 @@ const APP_BASE_URL = (() => {
     return origin;
 })();
 
+// --- ENGINE CENTRAL DE NOTIFICAÇÕES TOAST (PADRONIZADA) ---
+const showToast = (message, type = 'success') => {
+    let container = document.getElementById('notification-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notification-container';
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icon = type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ';
+    toast.textContent = icon + message;
+    container.appendChild(toast);
+
+    setTimeout(() => toast.classList.add('show'), 50);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 400);
+    }, 4000);
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(window.location.search);
     const targetUserId = params.get('id'); 
@@ -24,7 +45,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const userIdToFetch = targetUserId || loggedUserId;
 
     // ELEMENTOS DA INTERFACE
-    const notificationContainer = document.getElementById('notification-container');
     const displayAvatar = document.getElementById('display-avatar');
     const headerAvatar = document.getElementById('header-avatar');
     const dropdown = document.getElementById('user-dropdown');
@@ -45,20 +65,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         inputDataNasc.max = dataMinima16.toISOString().split('T')[0];
         inputDataNasc.min = dataMaxima140.toISOString().split('T')[0];
     }
-
-    // GESTÃO DE NOTIFICAÇÕES TOAST
-    const showNotification = (message, type = 'success') => {
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.textContent = message;
-        if (notificationContainer) {
-            notificationContainer.appendChild(toast);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                setTimeout(() => toast.remove(), 500);
-            }, 4000);
-        }
-    };
 
     // CONTROLE DE LOGOUT E MENUS
     if (headerAvatar && dropdown) {
@@ -91,7 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // PROCURA DE USUÁRIOS
+    // PROCURA DE USUÁRIOS (PRESERVADO INTEGRAMENTE PARA REFERÊNCIA)
     const searchInput = document.getElementById("search-bar");
     const resultsBox = document.getElementById("search-results");
     if (searchInput && resultsBox) {
@@ -123,18 +129,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const regexSobrenome = /^[A-Za-zÀ-ÿ\s]{2,50}$/;
 
         if (!regexNome.test(nome)) {
-            showNotification("O nome deve ter entre 2 e 25 letras.", "error");
+            showToast("O nome deve ter entre 2 e 25 letras.", "error");
             return;
         }
         if (!regexSobrenome.test(sobrenome)) {
-            showNotification("O sobrenome deve ter entre 2 e 50 letras.", "error");
+            showToast("O sobrenome deve ter entre 2 e 50 letras.", "error");
             return;
         }
 
         if (dtNascVal) {
             const dataDigitada = new Date(dtNascVal);
             if (dataDigitada > dataMinima16 || dataDigitada < dataMaxima140) {
-                showNotification("Idade ou ano de nascimento inválidos.", "error");
+                showToast("Idade ou ano de nascimento inválidos.", "error");
                 return;
             }
         }
@@ -157,21 +163,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             const res = await fetch(`${APP_BASE_URL}/usuarios/update`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: "include", // Anexa os cookies essenciais para o backend aceitar o commit
+                credentials: "include", 
                 body: JSON.stringify(dados)
             });
 
             if (res.ok) {
-                showNotification("Alterações gravadas com sucesso!");
+                showToast("Alterações gravadas com sucesso!", "success");
                 setTimeout(() => window.location.reload(), 1000);
             } else {
                 const erro = await res.json().catch(() => ({ detail: "Erro interno no servidor." }));
-                showNotification(erro.detail || "Erro ao salvar.", "error");
+                showToast(erro.detail || "Erro ao salvar.", "error");
                 btnSalvar.disabled = false;
                 btnSalvar.textContent = originalText;
             }
         } catch (e) { 
-            showNotification("Erro de conexão.", "error");
+            showToast("Erro de conexão.", "error");
             btnSalvar.disabled = false;
             btnSalvar.textContent = originalText;
         }
@@ -232,8 +238,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (e) { console.error("Erro ao remover conta:", e); }
     });
 
-    // --- FUNÇÕES DE REDUNDÂNCIA DESATIVADAS PELO SSR ---
-    // O Jinja2 já entrega os dados pré-carregados no HTML nativo.
     const carregarHeader = async () => {};
     const carregarPerfil = async () => {};
 });

@@ -113,8 +113,18 @@ button,
     filter: drop-shadow(0 0 5px rgba(123, 47, 247, 0.5)); 
 }
 
+/* ==========================================================================
+   ESTILIZAÇÃO DA BUSCA DE USUÁRIOS (PADRONIZADO COM O VISUAL DO PERFIL)
+   ========================================================================== */
+.search-section {
+    position: relative;
+    flex: 1;
+    max-width: 420px;
+    min-width: 0;
+}
+
 .search-bar {
-    background-color: var(--input-bg);
+    background-color: #262626;
     border: none;
     border-radius: 8px;
     padding: 10px 15px;
@@ -123,45 +133,38 @@ button,
     outline: none;
 }
 
-.search-section {
-    position: relative;
-    flex: 1;
-    max-width: 420px;
-    min-width: 0;
-}
-
 .search-results {
     position: absolute;
     top: calc(100% + 8px);
     left: 0;
     width: 100%;
     max-height: 290px;
-    overflow-y: auto;
-    display: none;
-    flex-direction: column;
-    background: #090909;
+    background-color: #181818;
     border: 1px solid #2e2e2e;
     border-radius: 12px;
-    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
+    display: none;
+    flex-direction: column;
+    overflow-y: auto;
     z-index: 15;
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
 }
 
 .search-results.is-visible {
-    display: flex;
+    display: flex !important;
 }
 
 .search-result-item {
     width: 100%;
     background: transparent;
     border: none;
-    color: #e3e3e3;
-    text-align: left;
-    padding: 12px 14px;
-    border-bottom: 1px solid #1c1c1c;
+    padding: 15px 20px;
+    border-bottom: 1px solid #222;
     cursor: pointer;
+    transition: background-color 0.2s;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
+    text-align: left;
 }
 
 .search-result-item:last-child {
@@ -169,25 +172,28 @@ button,
 }
 
 .search-result-item:hover {
-    background: #151515;
+    background-color: #252525;
 }
 
 .search-result-username {
+    display: block;
+    color: var(--accent-purple);
+    font-size: 15px;
     font-weight: 700;
-    color: #ffffff;
 }
 
 .search-result-name {
-    font-size: 12px;
-    color: #9f9f9f;
-    font-family: sans-serif;
+    font-size: 13px;
+    color: var(--text-label);
 }
 
 .search-result-empty {
-    padding: 12px 14px;
-    color: #9f9f9f;
+    padding: 15px 20px;
+    color: var(--text-label);
     font-size: 13px;
 }
+
+/* ========================================================================== */
 
 /* Alinhamento do Avatar no Cabeçalho */
 .header-user-avatar { 
@@ -1282,7 +1288,6 @@ button,
     }
 }
 
-/* --- NOTIFICAÇÕES TOAST CUSTOMIZADAS --- */
 /* --- FORÇAR TOASTS NO CANTO SUPERIOR DIREITO --- */
 #notification-container {
     position: fixed !important;
