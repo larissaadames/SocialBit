@@ -29,7 +29,7 @@
       <div class="form-side">
         <h1>Cadastro</h1>
 
-        <form id="form-cadastro" novalidate>
+        <form id="cadastro-form" autocomplete="off" novalidate>
           <div class="form-grid">
             <div class="input-group">
               <label for="nome">Nome</label>
@@ -42,6 +42,7 @@
                 title="Use apenas letras"
                 required
                 placeholder="Nome"
+                autocomplete="off"
               />
             </div>
 
@@ -55,6 +56,7 @@
                 pattern="[A-Za-zÀ-ÿ\s]+"
                 title="Use apenas letras"
                 placeholder="Sobrenome"
+                autocomplete="off"
               />
             </div>
 
@@ -65,25 +67,25 @@
                 id="email"
                 required
                 placeholder="exemplo@email.com"
+                autocomplete="off"
               />
             </div>
 
             <div class="input-group">
-              <label for="dt-nasc">Data de Nascimento</label>
-              <input type="date" id="dt-nasc" required />
+              <label for="dtNasc">Data de Nascimento</label>
+              <input type="date" id="dtNasc" required />
             </div>
 
             <div class="input-group">
-              <label for="usuario">Usuário</label>
+              <label for="username">Usuário</label>
               <input
                 type="text"
-                id="usuario"
+                id="username"
                 minlength="4"
                 maxlength="26"
-                pattern="^@[a-zA-Z0-9_]{4,26}$"
-                title="Comece com @ e use de 3 a 25 caracteres"
                 placeholder="@usuario"
                 required
+                autocomplete="off"
               />
             </div>
 
@@ -95,6 +97,7 @@
                 maxlength="15"
                 placeholder="(00) 00000-0000"
                 required
+                autocomplete="off"
               />
             </div>
 
@@ -102,10 +105,8 @@
               <div class="input-group">
                 <label for="senha">Senha</label>
                 <div class="password-field">
-                  <input type="password" id="senha" required placeholder="Insira sua senha" />
-                  <button type="button" onclick="togglePassword('senha', this)">
-                    👁
-                  </button>
+                  <input type="password" id="senha" autocomplete="new-password" required placeholder="Insira sua senha" />
+                  <button type="button" id="toggle-senha-cadastro">👁</button>
                 </div>
               </div>
 
@@ -128,18 +129,14 @@
                 <input
                   type="password"
                   id="senha-confirmar"
+                  autocomplete="new-password"
                   required
                   placeholder="Insira sua senha"
                 />
-                <button
-                  type="button"
-                  onclick="togglePassword('senha-confirmar', this)"
-                >
-                  👁
-                </button>
+                <button type="button" id="toggle-senha-confirmar">👁</button>
               </div>
 
-              <button type="submit" class="btn-submit">Criar Conta</button>
+              <button type="submit" class="btn-submit" id="btn-submit">Criar Conta</button>
 
               <div class="login-link">
                 <a href="/login">➔ Já possui uma conta?</a>

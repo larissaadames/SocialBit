@@ -9,9 +9,6 @@
   <body>
     <div id="notification-container"></div>
 
-    <!-- <div class="bg-shape shape-1"></div>
-                    <div class="bg-shape shape-2"></div>
-                    <div class="bg-shape shape-3"></div> -->
     <div class="bg-geo">
       <div class="b b1"></div>
       <div class="b b2"></div>
@@ -32,7 +29,7 @@
           <img src="/public/img/bitCafé.png" alt="Ilustração da Bit" />
         </div>
 
-        <form class="login-form">
+        <form class="login-form" id="login-form">
           <div class="input-group">
             <label for="email">Email</label>
             <input
@@ -47,16 +44,15 @@
             <label for="password">Senha</label>
 
             <div class="password-field">
-              <input type="password" id="password" name="password" placeholder="••••••••"
-              />
+              <input type="password" id="password" name="password" placeholder="••••••••" />
 
-              <button type="button" onclick="togglePassword(event)" tabindex="-1">👁</button>
+              <button type="button" id="toggle-senha" tabindex="-1">👁</button>
             </div>
           </div>
 
           <a href="#" class="forgot-password">Esqueceu a senha?</a>
 
-          <button type="submit" class="btn btn-primary">
+          <button type="submit" class="btn btn-primary" id="btn-submit">
             Log in
             <img src="/public/img/pixelarrow.png" alt="seta" class="btn-arrow" />
           </button>
@@ -69,7 +65,7 @@
         </form>
       </div>
     </main>
-        <script src="/public/session.js?v=20260506"></script>
-      <script src="/public/Login/script.js?v=20260506"></script>
+    <script src="/public/session.js?v=20260506"></script>
+    <script src="/public/Login/script.js?v=20260506"></script>
   </body>
 </html>

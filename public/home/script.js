@@ -1,5 +1,5 @@
 /**
- * BitSocial - Script da Home (Versão Avançada - Fase 5 Concluída)
+ * BitSocial - Script da Home (Versão Avançada - Fase 5 Concluída e Padronizada)
  * Controla dinamicamente o feed global e as interações do usuário sem popups nativos.
  */
 const APP_BASE_URL = (() => {
@@ -38,18 +38,18 @@ const showToast = (message, type = 'success') => {
     }, 4000);
 };
 
-// --- INJETOR DINÂMICO: MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (FASE 5) ---
+// --- INJETOR DINÂMICO: MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (PADRONIZADO) ---
 const showConfirmModal = (title, message, onConfirm) => {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.style.display = 'flex'; // Força a exibição centralizada
     modal.innerHTML = `
-        <div class="modal-card">
-            <h2 style="color: #ff3333; margin-bottom: 10px;">${title}</h2>
-            <p style="margin-bottom: 20px; font-family: 'Rajdhani', sans-serif; font-size: 16px;">${message}</p>
-            <div class="modal-buttons">
-                <button type="button" class="btn-secondary id-cancel">Cancelar</button>
-                <button type="button" class="btn-danger id-confirm" style="background: #ff3333; color: #fff;">Confirmar</button>
+        <div class="modal-content">
+            <h3>${title}</h3>
+            <p>${message}</p>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel id-cancel">Cancelar</button>
+                <button type="button" class="btn-confirm id-confirm">Confirmar</button>
             </div>
         </div>
     `;
@@ -62,18 +62,19 @@ const showConfirmModal = (title, message, onConfirm) => {
     });
 };
 
-// --- INJETOR DINÂMICO: MODAL DE EDIÇÃO DE CONTEÚDO (FASE 5) ---
+// --- INJETOR DINÂMICO: MODAL DE EDIÇÃO DE CONTEÚDO (PADRONIZADO) ---
 const showEditModal = (currentContent, onSave) => {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.style.display = 'flex';
     modal.innerHTML = `
-        <div class="modal-card" style="min-width: 320px; max-width: 500px; width: 92%;">
-            <h2 style="color: #00ff66; margin-bottom: 10px;">Editar Publicação</h2>
-            <textarea style="width: 100%; min-height: 120px; background: #141414; color: #fff; border: 1px solid #333; border-radius: 4px; padding: 12px; margin: 15px 0; font-family: 'Rajdhani', sans-serif; font-size: 16px; resize: vertical; outline: none; box-sizing: border-box;" maxlength="500">${currentContent}</textarea>
-            <div class="modal-buttons">
-                <button type="button" class="btn-secondary id-cancel">Cancelar</button>
-                <button type="button" class="btn-primary id-save">Salvar Alterações</button>
+        <div class="modal-content" style="max-width: 500px; width: 92%;">
+            <h3>Editar Publicação</h3>
+            <p>Altere o conteúdo do seu post abaixo:</p>
+            <textarea class="composer-input" style="width: 100%; min-height: 120px; background: #151515; color: #f0f0f0; border: 1px solid #3a3a3a; border-radius: 10px; padding: 14px; margin: 15px 0; font-family: sans-serif; font-size: 14px; line-height: 1.45; resize: vertical; outline: none; box-sizing: border-box;" maxlength="500">${currentContent}</textarea>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel id-cancel">Cancelar</button>
+                <button type="button" class="btn-confirm id-save" style="background-color: var(--accent-purple);">Salvar</button>
             </div>
         </div>
     `;
@@ -340,7 +341,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (!posts.length) {
             if (activeFeedTarget === "saved") {
-                feedScroll.appendChild(criarMensagemFeed("Nenhum post保存 ainda.", "feed-empty"));
+                feedScroll.appendChild(criarMensagemFeed("Nenhum post salvo ainda.", "feed-empty"));
             } else {
                 feedScroll.appendChild(criarMensagemFeed("Nenhum post publicado ainda.", "feed-empty"));
                 const exemploCard = criarCardPostExemplo();
@@ -669,7 +670,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         return card;
     }
 
-    // --- REMOVER POST (AGORA UTILIZANDO MODAL CUSTOMIZADO) ---
+    // --- REMOVER POST (UTILIZANDO MODAL VISUALMENTE PADRONIZADO) ---
     async function removerPost(postId, postCard, deleteButton) {
         showConfirmModal(
             "⚠️ Excluir Publicação?", 
@@ -708,7 +709,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         );
     }
 
-    // --- EDITA POST (AGORA UTILIZANDO TEXTAREA CUSTOMIZADA EM MODAL) ---
+    // --- EDITA POST (UTILIZANDO CLASSE PADRONIZADA DE MODAL) ---
     async function editarPost(post, postCard, editButton) {
         showEditModal(post.conteudo, async (conteudoLimpo) => {
             editButton.disabled = true;

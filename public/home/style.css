@@ -1282,118 +1282,82 @@ button,
     }
 }
 
-/* --- SISTEMA CENTRAL DE TOASTS (FASE 5) --- */
+/* --- NOTIFICAÇÕES TOAST CUSTOMIZADAS --- */
+/* --- FORÇAR TOASTS NO CANTO SUPERIOR DIREITO --- */
 #notification-container {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 9999;
+    position: fixed !important;
+    top: 24px !important;
+    right: 24px !important;
+    bottom: auto !important;
+    left: auto !important;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
+    pointer-events: none;
+    z-index: 9999;
 }
 
+/* Ajuste da animação para deslizar elegantemente a partir da direita */
 .toast {
-    background: rgba(20, 20, 20, 0.95);
-    color: #ffffff;
+    background-color: #1e1e1e;
+    border: 2px solid var(--accent-purple);
+    border-radius: 10px;
     padding: 14px 24px;
-    border-radius: 6px;
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 600;
-    font-size: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(8px);
-    min-width: 280px;
-    max-width: 400px;
-    display: flex;
-    align-items: center;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    transform: translateX(120%);
-    opacity: 0;
-}
-
-/* Animação de entrada do Toast */
-.toast.show {
-    transform: translateX(0);
-    opacity: 1;
-}
-
-/* Variações de Tipo (Neon Borders) */
-.toast.success {
-    border-left: 4px solid #00ff66;
-    box-shadow: 0 0 15px rgba(0, 255, 102, 0.15);
-}
-
-.toast.error {
-    border-left: 4px solid #ff3333;
-    box-shadow: 0 0 15px rgba(255, 51, 51, 0.15);
-}
-
-.toast.info {
-    border-left: 4px solid #7b2ff7;
-    box-shadow: 0 0 15px rgba(123, 47, 247, 0.15);
-}
-
-/* --- PADRONIZAÇÃO DOS MODAIS DINÂMICOS --- */
-
-/* Força o fundo escuro transparente do modal */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(10, 10, 10, 0.85);
-    backdrop-filter: blur(6px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-/* O cartão central do modal */
-.modal-card {
-    background: #111111;
-    border: 1px solid #222222;
-    border-radius: 8px;
-    padding: 30px;
-    width: 90%;
-    max-width: 450px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
-    text-align: center;
-}
-
-/* Títulos dentro do modal */
-.modal-card h2 {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 20px;
-    margin-bottom: 12px;
-}
-
-/* Textos descritivos */
-.modal-card p {
-    font-family: 'Rajdhani', sans-serif;
-    color: #cccccc;
-    font-size: 16px;
-    line-height: 1.5;
-    margin-bottom: 24px;
-}
-
-/* Alinhamento dos botões */
-.modal-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-}
-
-/* Estilo base dos botões dos novos modais */
-.modal-buttons button {
-    font-family: 'Rajdhani', sans-serif;
+    color: #ffffff;
+    font-size: 14px;
     font-weight: 700;
-    font-size: 15px;
-    padding: 10px 22px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: none;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    pointer-events: auto;
+    min-width: 280px;
+    max-width: 420px;
+    font-family: "Orbitron", sans-serif;
+    letter-spacing: 0.5px;
+    
+    /* Estado inicial: escondido na direita */
+    opacity: 0;
+    transform: translateX(120%);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.25), opacity 0.3s ease;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast.success {
+    background-color: #1b5e20 !important; /* Verde sólido e visível no tema escuro */
+    border-color: #00e676 !important;     /* Borda verde neon para o estilo cyberpunk */
+    color: #ffffff !important;            /* Letra branca */
+}
+
+/* Estado de Erro: Fundo Vermelho e Letra Branca */
+.toast.error {
+    background-color: #8b0000 !important; /* Vermelho sólido impactante */
+    border-color: #ff4d4d !important;     /* Borda vermelha viva */
+    color: #ffffff !important;            /* Letra branca */
+}
+
+/* Configuração do Toast Info (Azul) */
+.toast.info {
+    background-color: #0056b3 !important;
+    border-color: #00a2ff !important;
+    color: #ffffff !important;
+}
+
+/* Responsividade: centraliza no topo em telas pequenas */
+@media (max-width: 480px) {
+    #notification-container {
+        top: 12px !important;
+        right: 12px !important;
+        left: 12px !important;
+        width: calc(100% - 24px);
+    }
+    .toast {
+        min-width: 0;
+        width: 100%;
+        transform: translateY(-20px); /* No mobile, vem de cima */
+    }
+    .toast.show {
+        transform: translateY(0);
+    }
 }
