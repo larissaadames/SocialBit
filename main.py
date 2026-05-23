@@ -4,8 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, text, func, and_
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, declarative_base  
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timedelta
@@ -13,6 +12,37 @@ from jose import jwt, JWTError
 from pathlib import Path
 import hashlib
 import re
+import bcrypt  
+
+# --- CONFIGURAÇÃO GLOBAL DE SEGURANÇA ---
+SECRET_KEY = "troque-esta-chave"
+ALGORITHM = "HS256"
+TOKEN_EXPIRE_SECONDS = 300
+PHONE_REGEX = re.compile(r"^\(\d{2}\)\s\d{4,5}-\d{4}$")
+
+def get_password_hash(password: str) -> str:
+    """Transforma a senha em um hash criptográfico irreversível (Bcrypt nativo) para salvar no banco."""
+    pwd_bytes = password.encode("utf-8")
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode("utf-8")
+
+def verify_password(plain_password: str, stored_password: str) -> bool:
+    """Compara a senha digitada com suporte inteligente a Bcrypt nativo, SHA-256 e Texto Puro legado."""
+    if not stored_password:
+        return False
+        
+    stored_password = str(stored_password).strip()
+
+    try:
+        if stored_password.startswith(("$2b$", "$2a$", "$2y$")):
+            return bcrypt.checkpw(plain_password.encode("utf-8"), stored_password.encode("utf-8"))
+    except Exception:
+        pass
+
+    if len(stored_password) == 64 and all(char in "0123456789abcdef" for char in stored_password.lower()):
+        return hashlib.sha256(plain_password.encode("utf-8")).hexdigest() == stored_password
+
+    return plain_password == stored_password
 
 # --- 1. CONFIGURAÇÃO DO BANCO DE DADOS ---
 DB_USER = "root"
@@ -55,7 +85,7 @@ class PostUsuario(Base):
 class PostSalvo(Base):
     __tablename__ = "PostSalvo"
     usuario_id = Column("fk_Usuario_ID", Integer, ForeignKey("Usuario.ID"), primary_key=True)
-    post_id = Column("fk_Post_ID", Integer, ForeignKey("Post.ID"), primary_key=True)
+    post_id = Column("fk_Post_ID", Integer, ForeignKey("Post.ID"), primary_key=True) 
 
 class Votacao(Base):
     __tablename__ = "Votacao"
@@ -70,7 +100,7 @@ class LoginRequest(BaseModel):
     email: str
     senha: str
 
-class CadastroUsuario(BaseModel):
+class UsuarioCreate(BaseModel):
     username: str
     dtNasc: str
     senha: str
@@ -106,6 +136,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- MIDDLEWARE DE SESSÃO DESLIZANTE (SLIDING EXPIRATION) ---
+@app.middleware("http")
+async def sliding_session_middleware(request: Request, call_next):
+    response = await call_next(request)
+    token = request.cookies.get("access_token")
+    if token and token not in ["null", "undefined", ""]:
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = payload.get("sub")
+            if user_id:
+                new_payload = {
+                    "sub": str(user_id),
+                    "exp": datetime.utcnow() + timedelta(seconds=TOKEN_EXPIRE_SECONDS)
+                }
+                new_token = jwt.encode(new_payload, SECRET_KEY, algorithm=ALGORITHM)
+                response.set_cookie(
+                    key="access_token", 
+                    value=new_token, 
+                    max_age=TOKEN_EXPIRE_SECONDS, 
+                    samesite="lax"
+                )
+        except JWTError:
+            pass
+    return response
+
 BASE_DIR = Path(__file__).resolve().parent
 PUBLIC_DIR = BASE_DIR / "public"
 app.mount("/public", StaticFiles(directory=str(PUBLIC_DIR)), name="public")
@@ -127,13 +182,17 @@ def startup_db():
         print(f"Aviso: nao foi possivel conectar ao banco no startup: {error}")
     ensure_schema_compatibility()
 
+# --- ENGENHARIA DE EXPANSÃO DE SCHEMA AUTOMÁTICA ---
 def ensure_schema_compatibility():
     def column_exists(conn, table_name: str, column_name: str) -> bool:
         row = conn.execute(
             text(
                 """
                 SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name AND COLUMN_NAME = :column_name LIMIT 1
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND LOWER(TABLE_NAME) = LOWER(:table_name) 
+                AND LOWER(COLUMN_NAME) = LOWER(:column_name) 
+                LIMIT 1
                 """
             ),
             {"table_name": table_name, "column_name": column_name},
@@ -142,32 +201,43 @@ def ensure_schema_compatibility():
 
     try:
         with engine.begin() as conn:
-            if not column_exists(conn, "Votacao", "valor"):
-                conn.execute(text("ALTER TABLE Votacao ADD COLUMN valor INT NULL DEFAULT 0"))
+            # 🔥 ENGINE AUTOMÁTICA: Modifica a coluna de senha antiga para suportar os 60 caracteres do Bcrypt
+            try:
+                conn.execute(text("ALTER TABLE Usuario MODIFY COLUMN senha VARCHAR(100)"))
+                print("🔹 [DATABASE]: Coluna 'senha' expandida com sucesso para VARCHAR(100) para suportar Bcrypt.")
+            except Exception as alter_err:
+                print(f"Aviso ao expandir coluna senha: {alter_err}")
+
+            try:
+                if not column_exists(conn, "Votacao", "valor"):
+                    conn.execute(text("ALTER TABLE Votacao ADD COLUMN valor INT NULL DEFAULT 0"))
+            except Exception: pass
+            
+            try:
+                if not column_exists(conn, "Usuario", "role"):
+                    conn.execute(text("ALTER TABLE Usuario ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'usuario'"))
+            except Exception: pass
+                
+            try:
+                if not column_exists(conn, "Usuario", "bio"):
+                    conn.execute(text("ALTER TABLE Usuario ADD COLUMN bio TEXT NULL"))
+            except Exception: pass
+                
+            try:
+                if not column_exists(conn, "Usuario", "foto_url"):
+                    conn.execute(text("ALTER TABLE Usuario ADD COLUMN foto_url TEXT NULL"))
+            except Exception: pass
+                
     except Exception as error:
-        print(f"Aviso: nao foi possivel ajustar schema do banco: {error}")
+        print(f"Aviso: Nao foi possivel rodar a checagem automatica de colunas: {error}")
 
-# --- 5. LÓGICA DE AUTENTICAÇÃO E SEGURANÇA ---
-SECRET_KEY = "troque-esta-chave"
-ALGORITHM = "HS256"
-TOKEN_EXPIRE_MINUTES = 60 * 24
-PHONE_REGEX = re.compile(r"^\(\d{2}\)\s\d{4,5}-\d{4}$")
-
+# --- 5. AUXILIARES DE VALIDAÇÃO E SEGURANÇA ---
 def create_access_token(user_id: int) -> str:
-    payload = {"sub": str(user_id), "exp": datetime.utcnow() + timedelta(minutes=TOKEN_EXPIRE_MINUTES)}
+    payload = {
+        "sub": str(user_id), 
+        "exp": datetime.utcnow() + timedelta(seconds=TOKEN_EXPIRE_SECONDS)
+    }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
-def get_password_hash(password: str) -> str:
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
-
-def is_probably_hash(stored_password: str) -> bool:
-    if not stored_password or len(stored_password) != 64: return False
-    return all(char in "0123456789abcdef" for char in stored_password.lower())
-
-def verify_password(plain_password: str, stored_password: str) -> bool:
-    if is_probably_hash(stored_password):
-        return get_password_hash(plain_password) == stored_password
-    return plain_password == stored_password
 
 def validate_phone_or_raise(phone: str):
     if not phone or not phone.strip(): return 
@@ -228,18 +298,15 @@ async def cadastro_page(request: Request):
 
 @app.get("/home", response_class=HTMLResponse)
 async def home_page(request: Request, db: Session = Depends(get_db)):
-    # 1. Proteção de página: Se não estiver logado, vai para o login
     redirect = require_authenticated_page(request)
     if redirect: return redirect
     
-    # 2. Obtém o ID do usuário logado para saber quais posts ele já votou ou salvou
     try:
         user_id = get_current_user_id(request)
         usuario_logado = db.query(Usuario).filter(Usuario.ID == user_id).first()
     except:
         return RedirectResponse(url="/login")
 
-    # 3. Busca os posts no banco já formatados (mesma lógica da API)
     posts_raw = (
         db.query(
             Post.ID, Post.conteudo, Post.votos, PostUsuario.usuario_id,
@@ -254,7 +321,6 @@ async def home_page(request: Request, db: Session = Depends(get_db)):
         .all()
     )
 
-    # 4. Renderiza a página passando os posts e os dados do usuário para o Jinja2
     return templates.TemplateResponse(request, "index.html", {
         "request": request, 
         "posts": posts_raw,
@@ -264,7 +330,6 @@ async def home_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/perfil", response_class=HTMLResponse)
 async def perfil_page(request: Request, id: Optional[int] = None, db: Session = Depends(get_db)):
-    # 1. Barreira de segurança por Cookie: Se não houver cookie válido, vai para o login
     redirect = require_authenticated_page(request)
     if redirect: return redirect
 
@@ -287,7 +352,6 @@ async def perfil_page(request: Request, id: Optional[int] = None, db: Session = 
             "pode_editar": pode_editar
         })
     except Exception as e:
-        # Removido o redirecionamento cego. Agora o erro real aparece no terminal do Uvicorn!
         print(f"\n❌ --- ERRO CRÍTICO DE RENDERIZAÇÃO NO JINJA2: {e} ---\n")
         raise e
 
@@ -305,40 +369,52 @@ async def obter_sessao_atual(request: Request, db: Session = Depends(get_db)):
 @app.post("/login")
 async def login(dados: LoginRequest, db: Session = Depends(get_db)):
     usuario = db.query(Usuario).filter(Usuario.email == dados.email).first()
+    
     if not usuario or not verify_password(dados.senha, usuario.senha):
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
 
-    if not is_probably_hash(usuario.senha):
-        usuario.senha = get_password_hash(dados.senha)
-        db.commit()
-
     token = create_access_token(usuario.ID)
+    
     response = JSONResponse({
-        "message": "Sucesso", "id": usuario.ID, "username": usuario.username,
-        "perfil": get_user_role(usuario), "foto_url": usuario.foto_url or "",
-        "access_token": token, "token_type": "bearer",
+        "message": "Sucesso",
+        "id": usuario.ID,
+        "username": usuario.username,
+        "perfil": get_user_role(usuario),
+        "access_token": token
     })
-    response.set_cookie(key="access_token", value=token, max_age=TOKEN_EXPIRE_MINUTES * 60, samesite="lax")
+    
+    response.set_cookie(key="access_token", value=token, max_age=TOKEN_EXPIRE_SECONDS, samesite="lax")
     return response
 
 @app.post("/usuarios")
-async def cadastrar_usuario(usuario: CadastroUsuario, db: Session = Depends(get_db)):
-    username_limpo = usuario.username.strip()
-    if not username_limpo: raise HTTPException(status_code=400, detail="Username inválido")
-    db_user = db.query(Usuario).filter(Usuario.email == usuario.email).first()
-    if db_user: raise HTTPException(status_code=400, detail="Email já cadastrado")
-    db_username = db.query(Usuario).filter(func.lower(Usuario.username) == username_limpo.lower()).first()
-    if db_username: raise HTTPException(status_code=400, detail="Username já cadastrado")
+async def cadastrar_usuario(dados: UsuarioCreate, db: Session = Depends(get_db)):
+    usuario_existente = db.query(Usuario).filter(
+        (Usuario.email == dados.email) | (Usuario.username == dados.username)
+    ).first()
+    if usuario_existente:
+        raise HTTPException(status_code=400, detail="E-mail ou Usuário já cadastrado.")
 
-    validate_phone_or_raise(usuario.telefone)
+    senha_criptografada = get_password_hash(dados.senha)
+
     novo_usuario = Usuario(
-        username=username_limpo, dtNasc=usuario.dtNasc, senha=get_password_hash(usuario.senha),
-        email=usuario.email, nome=usuario.nome, sobrenome=usuario.sobrenome,
-        telefone=usuario.telefone, role="usuario", bio="", foto_url=""
+        username=dados.username,
+        email=dados.email,
+        senha=senha_criptografada,  
+        nome=dados.nome,  
+        sobrenome=dados.sobrenome,
+        telefone=dados.telefone,
+        dtNasc=dados.dtNasc
     )
-    db.add(novo_usuario)
-    db.commit()
-    return {"message": "Usuário cadastrado com sucesso"}
+
+    try:
+        db.add(novo_usuario)
+        db.commit()
+        db.refresh(novo_usuario)
+        return {"message": "Usuário criado com sucesso", "id": novo_usuario.ID}
+    except Exception as database_error:
+        db.rollback()
+        print(f"\n❌ [ERRO CRÍTICO NO BANCO DE DADOS]: {database_error}\n")
+        raise HTTPException(status_code=500, detail=f"Erro interno no banco de dados: {str(database_error)}")
 
 @app.delete("/usuarios/{user_id}")
 async def deletar_usuario(user_id: int, request: Request, db: Session = Depends(get_db)):
@@ -368,7 +444,7 @@ async def buscar_usuarios(username: str, request: Request, db: Session = Depends
     return [{"id": u.ID, "username": u.username, "nome": u.nome, "sobrenome": u.sobrenome} for u in usuarios]
 
 @app.get("/usuarios/{user_id}")
-async def obter_perfil(user_id: str, request: Request, db: Session = Depends(get_db)):
+async def obtener_perfil(user_id: str, request: Request, db: Session = Depends(get_db)):
     get_current_user_id(request)
     if user_id in ["null", "undefined", ""]: raise HTTPException(status_code=400, detail="ID inválido")
     usuario = db.query(Usuario).filter(Usuario.ID == int(user_id)).first()

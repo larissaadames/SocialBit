@@ -68,7 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (btnSubmit) {
                 btnSubmit.disabled = true;
-                btnSubmit.textContent = "A entrar...";
+                btnSubmit.textContent = "Entrando...";
             }
 
             try {
@@ -89,7 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 localStorage.setItem("username", String(data.username));
                 localStorage.setItem("perfil", String(data.perfil || "usuario"));
 
-                showToast("Sessão iniciada com sucesso! A redirecionar...", "success");
+                showToast("Sessão iniciada com sucesso! Bem Vindo(a)!", "success");
                 
                 setTimeout(() => {
                     window.location.href = "/home";

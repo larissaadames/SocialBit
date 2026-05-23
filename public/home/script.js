@@ -1,6 +1,6 @@
 /**
- * BitSocial - Script da Home (Versão Avançada - Fase 5 Concluída e Padronizada)
- * Controla dinamicamente o feed global e as interações do usuário sem popups nativos.
+ * BitSocial - Script da Home (Versão Final Estabilizada)
+ * Renderiza o feed dinamicamente e gerencia interações e votações com Toasts em tempo real.
  */
 const APP_BASE_URL = (() => {
     const { protocol, hostname, port, origin } = window.location;
@@ -25,31 +25,34 @@ const showToast = (message, type = 'success') => {
         container.id = 'notification-container';
         document.body.appendChild(container);
     }
+
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
+    
     const icon = type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ';
     toast.textContent = icon + message;
-    container.appendChild(toast);
 
+    container.appendChild(toast);
     setTimeout(() => toast.classList.add('show'), 50);
+
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 400);
     }, 4000);
 };
 
-// --- INJETOR DINÂMICO: MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (PADRONIZADO) ---
+// --- ENGINE DE MODAIS PADRONIZADOS CONFORME REFERÊNCIA ---
 const showConfirmModal = (title, message, onConfirm) => {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
-    modal.style.display = 'flex'; // Força a exibição centralizada
+    modal.style.display = 'flex'; 
     modal.innerHTML = `
         <div class="modal-content">
             <h3>${title}</h3>
             <p>${message}</p>
             <div class="modal-actions">
+                <button type="button" class="btn-confirm id-confirm">Sim, Confirmar</button>
                 <button type="button" class="btn-cancel id-cancel">Cancelar</button>
-                <button type="button" class="btn-confirm id-confirm">Confirmar</button>
             </div>
         </div>
     `;
@@ -62,19 +65,17 @@ const showConfirmModal = (title, message, onConfirm) => {
     });
 };
 
-// --- INJETOR DINÂMICO: MODAL DE EDIÇÃO DE CONTEÚDO (PADRONIZADO) ---
 const showEditModal = (currentContent, onSave) => {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.style.display = 'flex';
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 500px; width: 92%;">
-            <h3>Editar Publicação</h3>
-            <p>Altere o conteúdo do seu post abaixo:</p>
-            <textarea class="composer-input" style="width: 100%; min-height: 120px; background: #151515; color: #f0f0f0; border: 1px solid #3a3a3a; border-radius: 10px; padding: 14px; margin: 15px 0; font-family: sans-serif; font-size: 14px; line-height: 1.45; resize: vertical; outline: none; box-sizing: border-box;" maxlength="500">${currentContent}</textarea>
+        <div class="modal-content" style="max-width: 500px;">
+            <h3 style="color: var(--accent-purple); text-align: left;">✎ Editar Publicação</h3>
+            <textarea style="width: 100%; min-height: 120px; background: #151515; color: #fff; border: 1px solid #333; border-radius: 8px; padding: 12px; margin: 15px 0; font-family: sans-serif; font-size: 14px; resize: vertical; outline: none; box-sizing: border-box;" maxlength="500">${currentContent}</textarea>
             <div class="modal-actions">
-                <button type="button" class="btn-cancel id-cancel">Cancelar</button>
                 <button type="button" class="btn-confirm id-save" style="background-color: var(--accent-purple);">Salvar</button>
+                <button type="button" class="btn-cancel id-cancel">Cancelar</button>
             </div>
         </div>
     `;
@@ -82,7 +83,7 @@ const showEditModal = (currentContent, onSave) => {
 
     const textarea = modal.querySelector('textarea');
     textarea.focus();
-    textarea.setSelectionRange(textarea.value.length, textarea.value.length); // Coloca o cursor no final do texto
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 
     modal.querySelector('.id-cancel').addEventListener('click', () => modal.remove());
     modal.querySelector('.id-save').addEventListener('click', () => {
@@ -116,9 +117,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const cancelPostButton = document.getElementById("btn-cancel-post");
     const sendPostButton = document.getElementById("btn-send-post");
     const feedScroll = document.getElementById("feed-scroll");
-
+    
     let loggedUserId = Number(localStorage.getItem("userId") || 0);
     let loggedUsername = localStorage.getItem("username") || "usuario";
+    const token = localStorage.getItem("token");
     const MAX_POST_LENGTH = 500;
 
     const normalizeUsername = value => {
@@ -126,7 +128,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         return cleaned || "usuario";
     };
     const formatUsername = value => `@${normalizeUsername(value)}`;
-    
     const EXAMPLE_POST = {
         username: "davi cagnato",
         conteudo: "Alguem sabe como faz para debugar codigo Python no IntelliJ? Estou quebrando cabeca com breakpoints.",
@@ -212,7 +213,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const conteudo = (postContentInput?.value || "").trim();
             if (!conteudo) {
-                showToast("Por favor, digite um conteúdo antes de publicar.", "error");
+                showToast("Escreva algo antes de publicar.", "error");
                 return;
             }
 
@@ -225,7 +226,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             try {
                 const response = await fetch(`${APP_BASE_URL}/posts`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
                     body: JSON.stringify({ conteudo }),
                 });
 
@@ -245,15 +249,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                         ...novoPost,
                         username: normalizeUsername(novoPost.username || loggedUsername),
                         salvo: false,
-                        voto: 0
                     });
                 }
                 fecharComposer();
-                showToast("Publicação compartilhada no feed global!", "success");
+                showToast("Publicação compartilhada com sucesso!", "success");
             } catch (error) {
                 console.error("Erro ao criar post:", error);
                 showToast(error.message || "Erro inesperado ao publicar post.", "error");
-            } finally {
+            } finally { 
                 if (sendPostButton) {
                     sendPostButton.disabled = false;
                     sendPostButton.classList.remove("is-sending");
@@ -299,9 +302,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function carregarAvatarHeader() {
         if (!headerAvatar) return;
         headerAvatar.style.backgroundImage = "url('/public/img/bitPerfil.png')";
+
         try {
-            const response = await fetch(`${APP_BASE_URL}/usuarios/${loggedUserId}`);
+            const response = await fetch(`${APP_BASE_URL}/usuarios/${loggedUserId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (response.status === 401) {
+                encerrarSessaoEIrLogin("Sua sessão expirou.");
+                return;
+            }
+
             if (!response.ok) return;
+
             const usuario = await response.json();
             const fotoFinal = usuario.foto_url && usuario.foto_url.length > 50 ? usuario.foto_url : "/public/img/bitPerfil.png";
             headerAvatar.style.backgroundImage = `url('${fotoFinal}')`;
@@ -312,17 +325,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function carregarPosts() {
         if (!feedScroll) return;
+
         feedScroll.innerHTML = "";
         feedScroll.appendChild(criarMensagemFeed(activeFeedTarget === "saved" ? "Carregando seus posts salvos..." : "Carregando posts...", "feed-loading"));
 
         try {
             const endpoint = activeFeedTarget === "saved" ? "/posts/saved" : "/posts";
-            const response = await fetch(`${APP_BASE_URL}${endpoint}`);
+            const response = await fetch(`${APP_BASE_URL}${endpoint}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
 
             if (response.status === 401) {
                 encerrarSessaoEIrLogin("Sua sessão expirou. Faça login novamente.");
                 return;
             }
+
             if (!response.ok) throw new Error("Não foi possível carregar o feed.");
 
             const posts = await response.json();
@@ -331,7 +348,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.error("Erro ao carregar feed:", error);
             feedScroll.innerHTML = "";
             feedScroll.appendChild(criarMensagemFeed(activeFeedTarget === "saved" ? "Erro ao carregar posts salvos. Tente novamente em instantes." : "Erro ao carregar posts. Tente novamente em instantes.", "feed-empty"));
-            showToast("Falha ao sincronizar o feed com a base de dados.", "error");
         }
     }
 
@@ -392,7 +408,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         const card = document.createElement("article");
         card.className = "post-card post-enter";
         card.dataset.postId = String(post.id);
-        card.dataset.userVote = String(post.voto || 0); 
         card.style.animationDelay = `${Math.min(index * 45, 260)}ms`;
 
         const header = document.createElement("header");
@@ -488,12 +503,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         const footer = document.createElement("footer");
         footer.className = "post-footer";
 
+        // CONFIGURAÇÃO DOS VOTOS ASSINADOS VINDO DO BANCO DE DADOS
         const votes = document.createElement("div");
         votes.className = "post-votes";
         votes.innerHTML = [
-            `<div class="vote-arrow upvote${post.voto === 1 ? ' upvoted' : ''}" aria-label="Upvote"></div>`,
-            `<span class="vote-count">${post.votos || 0}</span>`,
-            `<div class="vote-arrow downvote${post.voto === -1 ? ' downvoted' : ''}" aria-label="Downvote"></div>`
+            `<div class="vote-arrow upvote ${post.voto === 1 ? 'upvoted' : ''}" aria-label="Upvote"></div>`,
+            `<span class="vote-count" style="color: ${post.voto === 1 ? '#ff4d4d' : post.voto === -1 ? '#7b2ff7' : '#ffffff'}">${post.votos || 0}</span>`,
+            `<div class="vote-arrow downvote ${post.voto === -1 ? 'downvoted' : ''}" aria-label="Downvote"></div>`
         ].join("");
 
         const socialActions = document.createElement("div");
@@ -502,6 +518,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const shareButton = document.createElement("button");
         shareButton.type = "button";
         shareButton.className = "post-action-btn share-action-btn";
+        shareButton.title = "Compartilhar";
         shareButton.innerHTML = "&#10548;";
         shareButton.addEventListener("click", () => compartilharPost(post, shareButton));
 
@@ -509,7 +526,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         saveButton.type = "button";
         saveButton.className = "post-action-btn save-flag-btn";
         saveButton.title = post.salvo ? "Remover dos salvos" : "Salvar post";
-        saveButton.setAttribute("aria-pressed", post.salvo ? "true" : "false");
         if (post.salvo) saveButton.classList.add("is-saved");
         saveButton.innerHTML = "&#9873;";
         saveButton.addEventListener("click", () => alternarPostSalvo(post.id, saveButton, card));
@@ -526,14 +542,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         return card;
     }
 
+    // --- PLUGADO E PERSISTIDO: ENGINE DE CRITÉRIOS DE VOTAÇÃO COMPLETA (FASE 5) ---
     function configurarVotacao(postElement) {
         const upBtn = postElement.querySelector(".upvote");
         const downBtn = postElement.querySelector(".downvote");
         const countSpan = postElement.querySelector(".vote-count");
+        const postId = postElement.dataset.postId;
 
-        if (!upBtn || !downBtn || !countSpan) return;
+        if (!upBtn || !downBtn || !countSpan || !postId) return;
 
-        let userVote = parseInt(postElement.dataset.userVote, 10) || 0;
+        // Recupera o estado inicial seguro baseado nas classes injetadas
+        let userVote = upBtn.classList.contains("upvoted") ? 1 : downBtn.classList.contains("downvoted") ? -1 : 0;
+        const baseCount = (parseInt(countSpan.textContent, 10) || 0) - userVote;
 
         function triggerAnimation(elemento) {
             elemento.classList.remove("animating");
@@ -541,53 +561,82 @@ document.addEventListener("DOMContentLoaded", async () => {
             elemento.classList.add("animating");
         }
 
+        // Realiza a requisição assíncrona ao servidor e joga o feedback visual em tela
+        async function sincronizarVotoComServidor(tipo) {
+            try {
+                const response = await fetch(`${APP_BASE_URL}/posts/${postId}/votar?tipo=${tipo}`, {
+                    method: "PUT",
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                if (response.status === 401) {
+                    encerrarSessaoEIrLogin("Sua sessão expirou. Faça login novamente.");
+                    return;
+                }
+
+                if (response.ok) {
+                    const data = await response.json();
+                    countSpan.textContent = data.votos; // Alinha com o dado absoluto do MySQL
+                    
+                    // GATILHOS DOS TOASTS CUSTOMIZADOS COM SUCESSO E CORES DO PERFIL
+                    if (tipo === "up") showToast("Voto positivo registrado!", "success");
+                    else if (tipo === "down") showToast("Voto negativo registrado!", "success");
+                    else if (tipo === "cancel") showToast("Voto removido.", "success");
+                } else {
+                    const detail = await extrairErro(response);
+                    showToast(detail || "Não foi possível registrar seu voto.", "error");
+                    setTimeout(() => window.location.reload(), 1000);
+                }
+            } catch (error) {
+                console.error("Erro ao persistir voto no banco:", error);
+                showToast("Erro de conexão com o servidor.", "error");
+            }
+        }
+
         upBtn.addEventListener("click", async () => {
             triggerAnimation(upBtn);
-            const action = userVote === 1 ? "cancel" : "up"; 
-            try {
-                const res = await fetch(`${APP_BASE_URL}/posts/${postElement.dataset.postId}/votar?tipo=${action}`, { method: "PUT" });
-                if (res.ok) {
-                    const d = await res.json();
-                    countSpan.textContent = d.votos;
-                    
-                    if (userVote === 1) {
-                        userVote = 0;
-                        upBtn.classList.remove("upvoted");
-                        showToast("Voto removido.", "info");
-                    } else {
-                        userVote = 1;
-                        upBtn.classList.add("upvoted");
-                        downBtn.classList.remove("downvoted");
-                        showToast("Voto computado: Upvote!", "success");
-                    }
-                    postElement.dataset.userVote = userVote;
-                }
-            } catch(e) { console.error(e); }
+            let tipoEnvio = "";
+            if (userVote === 1) {
+                userVote = 0;
+                upBtn.classList.remove("upvoted");
+                tipoEnvio = "cancel";
+            } else {
+                userVote = 1;
+                upBtn.classList.add("upvoted");
+                downBtn.classList.remove("downvoted");
+                tipoEnvio = "up";
+            }
+            atualizarContadorVisual(countSpan, baseCount, userVote);
+            await sincronizarVotoComServidor(tipoEnvio);
         });
 
         downBtn.addEventListener("click", async () => {
             triggerAnimation(downBtn);
-            const action = userVote === -1 ? "cancel" : "down";
-            try {
-                const res = await fetch(`${APP_BASE_URL}/posts/${postElement.dataset.postId}/votar?tipo=${action}`, { method: "PUT" });
-                if (res.ok) {
-                    const d = await res.json();
-                    countSpan.textContent = d.votos;
-                    
-                    if (userVote === -1) {
-                        userVote = 0;
-                        downBtn.classList.remove("downvoted");
-                        showToast("Voto removido.", "info");
-                    } else {
-                        userVote = -1;
-                        downBtn.classList.add("downvoted");
-                        upBtn.classList.remove("upvoted");
-                        showToast("Voto computado: Downvote.", "info");
-                    }
-                    postElement.dataset.userVote = userVote;
-                }
-            } catch(e) { console.error(e); }
+            let tipoEnvio = "";
+            if (userVote === -1) {
+                userVote = 0;
+                downBtn.classList.remove("downvoted");
+                tipoEnvio = "cancel";
+            } else {
+                userVote = -1;
+                downBtn.classList.add("downvoted");
+                upBtn.classList.remove("upvoted");
+                tipoEnvio = "down";
+            }
+            atualizarContadorVisual(countSpan, baseCount, userVote);
+            await sincronizarVotoComServidor(tipoEnvio);
         });
+    }
+
+    function atualizarContadorVisual(elemento, base, voto) {
+        elemento.textContent = base + voto;
+        if (voto === 1) {
+            elemento.style.color = "#ff4d4d";
+        } else if (voto === -1) {
+            elemento.style.color = "#7b2ff7";
+        } else {
+            elemento.style.color = "#ffffff";
+        }
     }
 
     function criarMensagemFeed(mensagem, classe) {
@@ -670,17 +719,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         return card;
     }
 
-    // --- REMOVER POST (UTILIZANDO MODAL VISUALMENTE PADRONIZADO) ---
     async function removerPost(postId, postCard, deleteButton) {
         showConfirmModal(
-            "⚠️ Excluir Publicação?", 
-            "Tem certeza que deseja apagar permanentemente este post do feed global? Essa ação não pode ser desfeita.", 
+            "Excluir Publicação", 
+            "Tem certeza que deseja excluir este post? Essa ação não pode ser desfeita.", 
             async () => {
                 deleteButton.disabled = true;
                 deleteButton.classList.add("is-loading");
 
                 try {
-                    const response = await fetch(`${APP_BASE_URL}/posts/${postId}`, { method: "DELETE" });
+                    const response = await fetch(`${APP_BASE_URL}/posts/${postId}`, {
+                        method: "DELETE",
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
 
                     if (response.status === 401) {
                         encerrarSessaoEIrLogin("Sua sessão expirou. Faça login novamente.");
@@ -696,12 +747,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                     window.setTimeout(() => {
                         postCard.remove();
                         if (feedScroll && !feedScroll.querySelector(".post-card")) {
-                            feedScroll.appendChild(criarMensagemFeed("Nenhum post publicado ainda.", "feed-empty"));
+                            feedScroll.appendChild(criarMensagemFeed(activeFeedTarget === "saved" ? "Nenhum post salvo ainda." : "Nenhum post publicado ainda.", "feed-empty"));
                         }
                     }, 240);
                     showToast("Publicação deletada com sucesso.", "success");
                 } catch (error) {
-                    showToast(error.message, "error");
+                    showToast(error.message || "Erro inesperado ao excluir o post.", "error");
+                } finally {
                     deleteButton.disabled = false;
                     deleteButton.classList.remove("is-loading");
                 }
@@ -709,32 +761,39 @@ document.addEventListener("DOMContentLoaded", async () => {
         );
     }
 
-    // --- EDITA POST (UTILIZANDO CLASSE PADRONIZADA DE MODAL) ---
     async function editarPost(post, postCard, editButton) {
-        showEditModal(post.conteudo, async (conteudoLimpo) => {
+        const conteudoAtual = String(post.conteudo || "");
+        
+        showEditModal(conteudoAtual, async (conteudoLimpo) => {
             editButton.disabled = true;
             editButton.classList.add("is-loading");
 
             try {
                 const response = await fetch(`${APP_BASE_URL}/posts/${post.id}`, {
                     method: "PUT",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
                     body: JSON.stringify({ conteudo: conteudoLimpo }),
                 });
 
                 if (response.status === 401) {
-                    encerrarSessaoEIrLogin("Sua sessão expirou.");
+                    encerrarSessaoEIrLogin("Sua sessão expirou. Faça login novamente.");
                     return;
                 }
 
-                if (!response.ok) throw new Error();
+                if (!response.ok) {
+                    const detail = await extrairErro(response);
+                    throw new Error(detail || "Não foi possível editar o post.");
+                }
 
                 post.conteudo = conteudoLimpo;
                 const texto = postCard.querySelector(".post-text");
                 if (texto) texto.textContent = conteudoLimpo;
                 showToast("Publicação atualizada com sucesso!", "success");
             } catch (error) {
-                showToast("Erro ao tentar atualizar a publicação.", "error");
+                showToast(error.message || "Erro inesperado ao editar o post.", "error");
             } finally {
                 editButton.disabled = false;
                 editButton.classList.remove("is-loading");
@@ -754,30 +813,42 @@ document.addEventListener("DOMContentLoaded", async () => {
         saveButton.classList.add("is-loading");
 
         try {
-            const response = await fetch(`${APP_BASE_URL}/posts/${postId}/save`, { method });
+            const response = await fetch(`${APP_BASE_URL}/posts/${postId}/save`, {
+                method,
+                headers: { Authorization: `Bearer ${token}` },
+            });
 
             if (response.status === 401) {
-                encerrarSessaoEIrLogin("Sua sessão expirou.");
+                encerrarSessaoEIrLogin("Sua sessão expirou. Faça login novamente.");
                 return;
             }
 
-            if (!response.ok) throw new Error();
+            if (!response.ok) {
+                const detail = await extrairErro(response);
+                throw new Error(detail || "Não foi possível atualizar seus salvos.");
+            }
 
             const agoraSalvo = !estaSalvo;
             saveButton.classList.toggle("is-saved", agoraSalvo);
             saveButton.title = agoraSalvo ? "Remover dos salvos" : "Salvar post";
 
             if (agoraSalvo) {
-                showToast("Post guardado na sua lista de marcadores.", "success");
+                showToast("Post guardado com sucesso!", "success");
             } else {
                 showToast("Post removido dos guardados.", "info");
             }
 
             if (activeFeedTarget === "saved" && !agoraSalvo) {
-                postCard.remove();
+                postCard.classList.add("is-removing");
+                window.setTimeout(() => {
+                    postCard.remove();
+                    if (feedScroll && !feedScroll.querySelector(".post-card")) {
+                        feedScroll.appendChild(criarMensagemFeed("Nenhum post salvo ainda.", "feed-empty"));
+                    }
+                }, 240);
             }
         } catch (error) {
-            showToast("Erro ao atualizar o status do post guardado.", "error");
+            showToast(error.message || "Erro inesperado ao salvar o post.", "error");
         } finally {
             saveButton.disabled = false;
             saveButton.classList.remove("is-loading");
@@ -793,7 +864,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             await copiarTexto(textoCompartilhamento);
             shareButton.classList.add("is-shared");
-            showToast("Conteúdo copiado para a área de transferência!", "success");
+            showToast("Texto copiado para a área de transferência!", "success");
             window.setTimeout(() => shareButton.classList.remove("is-shared"), 900);
         } catch (error) {
             console.error(error);
@@ -814,11 +885,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.querySelectorAll(".post-menu-wrapper.open").forEach(menu => menu.classList.remove("open"));
     }
 
+    // --- CORREÇÃO DO REDIRECT (2.5 SEGUNDOS PARA PERMITIR LEITURA DO TOAST) ---
     function encerrarSessaoEIrLogin(mensagem = "") {
-        localStorage.clear();
+        localStorage.removeItem("token");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("username");
+        localStorage.removeItem("perfil");
+        
         document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-        if (mensagem) showToast(mensagem, "error");
-        setTimeout(() => { window.location.href = LOGIN_PAGE_URL; }, 800);
+
+        if (mensagem) {
+            showToast(mensagem, "error");
+        }
+
+        setTimeout(() => {
+            window.location.href = LOGIN_PAGE_URL;
+        }, 2500); // 2.5 segundos: tempo ideal para o usuário ver o Toast
     }
 
     function configurarBuscaUsuarios() {
@@ -845,9 +927,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         const requestId = ++lastSearchRequestId;
 
         try {
-            const response = await fetch(`${APP_BASE_URL}/usuarios/busca?username=${encodeURIComponent(termo)}`);
+            const response = await fetch(`${APP_BASE_URL}/usuarios/busca?username=${encodeURIComponent(termo)}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
             if (requestId !== lastSearchRequestId) return;
-            if (!response.ok) throw new Error();
+
+            if (response.status === 401) {
+                encerrarSessaoEIrLogin("Sua sessão expirou. Faça login novamente.");
+                return;
+            }
+
+            if (!response.ok) throw new Error("Falha ao buscar usuários");
 
             const usuarios = await response.json();
             renderizarResultadosBusca(Array.isArray(usuarios) ? usuarios : []);

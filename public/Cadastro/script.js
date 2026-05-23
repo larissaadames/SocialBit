@@ -109,7 +109,7 @@ const vincularOlhinho = (btnId, inputId) => {
       e.preventDefault();
       if (input.type === "password") {
         input.type = "text";
-        btn.textContent = "🙈";
+        btn.textContent = "👁";
       } else {
         input.type = "password";
         btn.textContent = "👁";
@@ -243,7 +243,7 @@ if (cadastroForm) {
 
       if (btnSubmit) {
         btnSubmit.disabled = true;
-        btnSubmit.textContent = "A cadastrar...";
+        btnSubmit.textContent = "Cadastrando...";
       }
 
       const dados = {

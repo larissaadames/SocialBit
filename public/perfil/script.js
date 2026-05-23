@@ -1,5 +1,6 @@
 /**
- * BitSocial - Script do Perfil (Edição e Interações Sincronizadas)
+ * BitSocial - Script do Perfil (Versão Final - Controle de Sessão Blindado)
+ * Gerencia a visualização, edição e exclusão de contas interceptando sessões expiradas.
  */
 const APP_BASE_URL = (() => {
     const { protocol, hostname, port, origin } = window.location;
@@ -8,27 +9,6 @@ const APP_BASE_URL = (() => {
     if (isLocalhost && port !== "8000") return "http://127.0.0.1:8000";
     return origin;
 })();
-
-// --- ENGINE CENTRAL DE NOTIFICAÇÕES TOAST (PADRONIZADA) ---
-const showToast = (message, type = 'success') => {
-    let container = document.getElementById('notification-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'notification-container';
-        document.body.appendChild(container);
-    }
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    const icon = type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ';
-    toast.textContent = icon + message;
-    container.appendChild(toast);
-
-    setTimeout(() => toast.classList.add('show'), 50);
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 400);
-    }, 4000);
-};
 
 document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(window.location.search);
@@ -45,6 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const userIdToFetch = targetUserId || loggedUserId;
 
     // ELEMENTOS DA INTERFACE
+    const notificationContainer = document.getElementById('notification-container');
     const displayAvatar = document.getElementById('display-avatar');
     const headerAvatar = document.getElementById('header-avatar');
     const dropdown = document.getElementById('user-dropdown');
@@ -66,6 +47,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         inputDataNasc.min = dataMaxima140.toISOString().split('T')[0];
     }
 
+    // GESTÃO DE NOTIFICAÇÕES TOAST DO PERFIL
+    const showNotification = (message, type = 'success') => {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        if (notificationContainer) {
+            notificationContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 500);
+            }, 4000);
+        }
+    };
+
+    // --- FUNÇÃO CENTRAL DE EXPIRAÇÃO DE SESSÃO (FASE 5) ---
+    function encerrarSessaoEIrLogin(mensagem = "") {
+        localStorage.clear();
+        
+        // Destrói o cookie do servidor imediatamente no navegador
+        document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+        if (mensagem) {
+            showNotification(mensagem, "error");
+        }
+
+        // Delay para leitura do Toast antes de deslogar de vez
+        setTimeout(() => {
+            window.location.href = "/login";
+        }, 2500);
+    }
+
     // CONTROLE DE LOGOUT E MENUS
     if (headerAvatar && dropdown) {
         headerAvatar.addEventListener('click', (e) => {
@@ -80,9 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         logoutTrigger.addEventListener('click', () => { logoutModal.style.display = 'flex'; });
         document.getElementById('cancel-logout')?.addEventListener('click', () => { logoutModal.style.display = 'none'; });
         document.getElementById('confirm-logout')?.addEventListener('click', () => {
-            localStorage.clear();
-            document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-            window.location.href = "/login";
+            encerrarSessaoEIrLogin();
         });
     }
 
@@ -97,7 +107,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // PROCURA DE USUÁRIOS (PRESERVADO INTEGRAMENTE PARA REFERÊNCIA)
+    // PROCURA DE USUÁRIOS (PROTEGIDA CONTRA EXPIRAÇÃO)
     const searchInput = document.getElementById("search-bar");
     const resultsBox = document.getElementById("search-results");
     if (searchInput && resultsBox) {
@@ -106,6 +116,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (termo.length < 2) { resultsBox.style.display = "none"; return; }
             try {
                 const res = await fetch(`${APP_BASE_URL}/usuarios/busca?username=${encodeURIComponent(termo)}`, { credentials: "include" });
+                
+                if (res.status === 401) {
+                    encerrarSessaoEIrLogin("Sua sessão expirou. Faça login novamente.");
+                    return;
+                }
+
                 const usuarios = await res.json();
                 resultsBox.innerHTML = usuarios.map(u => `
                     <div class="search-item" onclick="window.location.href='/perfil?id=${u.id}'">
@@ -118,7 +134,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // SALVAR ALTERAÇÕES (MÉTODO PROTEGIDO VIA COOKIES)
+    // SALVAR ALTERAÇÕES (INTERCEPTAÇÃO DO ERRO 401)
     const salvarAlteracoes = async () => {
         const nome = document.getElementById('edit-nome').value.trim();
         const sobrenome = document.getElementById('edit-sobrenome').value.trim();
@@ -129,18 +145,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const regexSobrenome = /^[A-Za-zÀ-ÿ\s]{2,50}$/;
 
         if (!regexNome.test(nome)) {
-            showToast("O nome deve ter entre 2 e 25 letras.", "error");
+            showNotification("O nome deve ter entre 2 e 25 letras.", "error");
             return;
         }
         if (!regexSobrenome.test(sobrenome)) {
-            showToast("O sobrenome deve ter entre 2 e 50 letras.", "error");
+            showNotification("O sobrenome deve ter entre 2 e 50 letras.", "error");
             return;
         }
 
         if (dtNascVal) {
             const dataDigitada = new Date(dtNascVal);
             if (dataDigitada > dataMinima16 || dataDigitada < dataMaxima140) {
-                showToast("Idade ou ano de nascimento inválidos.", "error");
+                showNotification("Idade ou ano de nascimento inválidos.", "error");
                 return;
             }
         }
@@ -167,17 +183,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify(dados)
             });
 
+            // CORREÇÃO CRÍTICA: Intercepta a sessão expirada ao tentar salvar
+            if (res.status === 401) {
+                encerrarSessaoEIrLogin("Sua sessão expirou. Faça login novamente.");
+                return;
+            }
+
             if (res.ok) {
-                showToast("Alterações gravadas com sucesso!", "success");
+                showNotification("Alterações gravadas com sucesso!");
                 setTimeout(() => window.location.reload(), 1000);
             } else {
                 const erro = await res.json().catch(() => ({ detail: "Erro interno no servidor." }));
-                showToast(erro.detail || "Erro ao salvar.", "error");
+                showNotification(erro.detail || "Erro ao salvar.", "error");
                 btnSalvar.disabled = false;
                 btnSalvar.textContent = originalText;
             }
         } catch (e) { 
-            showToast("Erro de conexão.", "error");
+            showNotification("Erro de conexão.", "error");
             btnSalvar.disabled = false;
             btnSalvar.textContent = originalText;
         }
@@ -219,7 +241,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnSalvar.addEventListener('click', () => salvarAlteracoes());
     }
 
-    // REMOVER CONTA COORDENADO PELO MODAL ESTILIZADO
+    // REMOVER CONTA (INTERCEPTAÇÃO DO ERRO 401)
     const deleteModal = document.getElementById('delete-modal');
     document.getElementById('delete-account-btn')?.addEventListener('click', () => {
         if (deleteModal) deleteModal.style.display = 'flex';
@@ -230,14 +252,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('confirm-delete')?.addEventListener('click', async () => {
         try {
             const res = await fetch(`${APP_BASE_URL}/usuarios/${userIdToFetch}`, { method: 'DELETE', credentials: "include" });
+            
+            if (res.status === 401) {
+                if (deleteModal) deleteModal.style.display = 'none';
+                encerrarSessaoEIrLogin("Sua sessão expirou. Faça login novamente.");
+                return;
+            }
+
             if (res.ok) {
-                localStorage.clear();
-                document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                window.location.href = "/login";
+                encerrarSessaoEIrLogin();
             }
         } catch (e) { console.error("Erro ao remover conta:", e); }
     });
 
+    // Desativadas pelo Server-Side Render (SSR) ativo
     const carregarHeader = async () => {};
     const carregarPerfil = async () => {};
 });
