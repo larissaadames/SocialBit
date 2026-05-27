@@ -23,7 +23,7 @@
             </div>
 
             <div class="user-menu-wrapper">
-                <div class="header-user-avatar" id="header-avatar" style="background-image: url('{{ usuario_logado.foto_url if usuario_logado and usuario_logado.foto_url|string|length > 50 else '/public/img/bitPerfil.png' }}');"></div>
+                <div class="header-user-avatar" id="header-avatar" style="background-image: url('{% if usuario_logado and usuario_logado.foto_url and usuario_logado.foto_url|length > 50 %}{{ usuario_logado.foto_url }}{% else %}/public/img/bitPerfil.png{% endif %}');"></div>
                 
                 <div id="user-dropdown" class="dropdown-menu">
                     <a href="/perfil" class="dropdown-item">Acessar Perfil</a>
@@ -38,7 +38,7 @@
             <section class="profile-card">
                 <div class="profile-main-info">
                     <div class="avatar-wrapper" id="avatar-wrapper">
-                        <div class="profile-avatar-large" id="display-avatar" style="background-image: url('{{ u.foto_url if u and u.foto_url|string|length > 50 else '/public/img/bitPerfil.png' }}');"></div>
+                        <div class="profile-avatar-large" id="display-avatar" style="background-image: url('{% if u and u.foto_url and u.foto_url|length > 50 %}{{ u.foto_url }}{% else %}/public/img/bitPerfil.png{% endif %}');"></div>
                         {% if pode_editar %}
                         <div class="avatar-overlay" id="avatar-overlay">Trocar Foto</div>
                         {% endif %}
@@ -48,13 +48,15 @@
                         <h1 id="display-nome-completo">{{ u.nome }} {{ u.sobrenome }}</h1>
                         <p id="display-username">@{{ u.username.lstrip('@') }}</p>
                         <div class="bio-box">
-                            <p id="display-bio">{{ u.bio if u.bio else "> Olá! Bem-vindo ao meu SocialBit." }}</p>
+                            <p id="display-bio">{{ u.bio if u.bio else 'Olá! Bem-vindo ao meu SocialBit.' }}</p>
                         </div>
                         <div class="extra-info">
                             <span id="display-telefone" class="info-item">{% if u.telefone %}📞 {{ u.telefone }}{% endif %}</span>
                             <span id="display-dtNasc" class="info-item">{% if u.dtNasc %}🎂 {{ u.dtNasc }}{% endif %}</span>
                         </div>
-                        <button id="btn-edit-perfil" class="btn-primary" style="display: {% if pode_editar %}block{% else %}none{% endif %};">Editar Perfil</button>
+                        {% if pode_editar %}
+                        <button id="btn-edit-perfil" class="btn-primary">Editar Perfil</button>
+                        {% endif %}
                     </div>
 
                     <div id="edit-mode" class="info-edit-section" style="display: none;">
