@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SocialBit - Home</title>
-    <link rel="stylesheet" href="/public/home/style.css">
+    <link rel="icon" type="image/png" href="/public/img/bitCafé.png">
+    <link rel="stylesheet" href="/public/home/style.css?v=20260608b">
 </head>
 <body class="dark-theme">
 
@@ -42,6 +43,9 @@
                 <div class="nav-item" data-target="saved">
                     <span class="nav-icon"></span> Salvos
                 </div>
+                <div class="nav-item admin-nav-item" id="admin-panel-link" style="display: none;">
+                    <span class="nav-icon"></span> Painel Admin
+                </div>
             </nav>
 
             <section class="feed-section">
@@ -58,11 +62,14 @@
                             maxlength="500"
                             placeholder="Compartilhe seu bug, dica ou duvida com a comunidade..."
                         ></textarea>
+                        <input type="file" id="post-image" accept="image/*" class="composer-file">
+                        <div id="post-image-name" class="composer-image-name"></div>
 
                         <div class="composer-actions">
                             <span class="composer-counter" id="post-counter">0/500</span>
-                            <button class="btn-cancel-post" id="btn-cancel-post" type="button">Cancelar</button>
-                            <button class="btn-send-post" id="btn-send-post" type="submit">Publicar</button>
+                            <label for="post-image" class="btn-image-post" title="Adicionar imagem"><span class="image-icon"></span></label>
+                            <button class="btn-cancel-post" id="btn-cancel-post" type="button" title="Cancelar">x</button>
+                            <button class="btn-send-post" id="btn-send-post" type="submit" title="Publicar">&gt;</button>
                         </div>
                     </form>
                 </div>
@@ -108,7 +115,7 @@
         </div>
     </div>
 
-    <script src="/public/session.js?v=20260506"></script>
-    <script src="/public/home/script.js?v=20260506"></script>
+    <script src="/public/session.js?v=20260608a"></script>
+    <script src="/public/home/script.js?v=20260608b"></script>
 </body>
 </html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialBit - Usuários</title>
+    <link rel="icon" type="image/png" href="/public/img/bitCafé.png">
+    <link rel="stylesheet" href="/public/home/style.css?v=20260607e">
+    <link rel="stylesheet" href="/public/admin/style.css?v=20260608g">
+</head>
+<body class="dark-theme admin-page" data-admin-page="usuarios">
+    <header class="app-header">
+        <div class="header-container">
+            <a href="/admin" class="logo-section logo-link">
+                <span class="logo-text">SocialBit</span>
+                <img src="/public/img/bitCodando.png" alt="Logo SocialBit" class="logo-icon-img">
+            </a>
+            <div class="user-menu-wrapper">
+                <div class="header-user-avatar" id="header-avatar" title="Administrador @{{ usuario_logado.username }}" style="background-image: url('{{ usuario_logado.foto_url if usuario_logado and usuario_logado.foto_url|string|length > 50 else '/public/img/bitPerfil.png' }}');"></div>
+                <div id="user-dropdown" class="dropdown-menu">
+                    <a href="/home" class="dropdown-item">Página Inicial</a>
+                    <a href="/perfil" class="dropdown-item">Acessar Perfil</a>
+                    <button id="btn-logout-trigger" class="dropdown-item logout-style">Sair</button>
+                </div>
+            </div>
+        </div>
+    </header>
+    <main class="admin-main">
+        <a href="/admin" class="admin-back-link">Voltar ao painel</a>
+        <section class="admin-section">
+            <div class="admin-title compact">
+                <span>Usuários</span>
+                <h1>Gestão de Usuários e Permissões</h1>
+                <p>Lista geral de usuários e ações básicas de moderação.</p>
+            </div>
+            <div id="admin-users-list" class="admin-list">
+                <p>Carregando usuários...</p>
+            </div>
+        </section>
+    </main>
+    <div id="logout-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3>Deseja mesmo sair?</h3>
+            <p>Você precisará fazer login novamente.</p>
+            <div class="modal-actions">
+                <button id="confirm-logout" class="btn-confirm">Sim, Sair</button>
+                <button id="cancel-logout" class="btn-cancel">Cancelar</button>
+            </div>
+        </div>
+    </div>
+    <script src="/public/session.js?v=20260608a"></script>
+    <script src="/public/admin/script.js?v=20260608f"></script>
+</body>
+</html>

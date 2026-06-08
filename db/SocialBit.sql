@@ -20,6 +20,8 @@ CREATE TABLE Post (
     texto VARCHAR(500),
     midia BLOB,
     voto INT,
+    data_criacao VARCHAR(19),
+    imagem_url LONGTEXT,
     fk_Tipo_ID INT
 );
 
@@ -40,12 +42,34 @@ CREATE TABLE PostSalvo (
     PRIMARY KEY (fk_Usuario_ID, fk_Post_ID)
 );
 
+CREATE TABLE Comentario (
+    ID INT PRIMARY KEY,
+    texto VARCHAR(500),
+    voto INT,
+    imagem_url LONGTEXT,
+    data_criacao VARCHAR(19),
+    fk_Post_ID INT,
+    fk_Usuario_ID INT,
+    fk_Comentario_Pai_ID INT
+);
+
 CREATE TABLE Votacao (
 	ID INT PRIMARY KEY,
     Tipo ENUM('post', 'comentario'),
     fk_Post_ID INT,
-    fk_Usuario_ID INT
+    fk_Usuario_ID INT,
+    fk_Comentario_ID INT
     
+);
+
+CREATE TABLE Denuncia (
+    ID INT PRIMARY KEY,
+    categoria VARCHAR(80),
+    detalhes TEXT,
+    status VARCHAR(20) DEFAULT 'pendente',
+    data_criacao VARCHAR(19),
+    fk_Post_ID INT,
+    fk_Usuario_ID INT
 );
  
 ALTER TABLE Post ADD CONSTRAINT FK_Post_2
@@ -69,6 +93,36 @@ ALTER TABLE Votacao ADD CONSTRAINT FK_Votacao_2
     ON DELETE SET NULL;
  
 ALTER TABLE Votacao ADD CONSTRAINT FK_Votacao_3
+    FOREIGN KEY (fk_Usuario_ID)
+    REFERENCES Usuario (ID)
+    ON DELETE SET NULL;
+
+ALTER TABLE Votacao ADD CONSTRAINT FK_Votacao_4
+    FOREIGN KEY (fk_Comentario_ID)
+    REFERENCES Comentario (ID)
+    ON DELETE SET NULL;
+
+ALTER TABLE Comentario ADD CONSTRAINT FK_Comentario_Post
+    FOREIGN KEY (fk_Post_ID)
+    REFERENCES Post (ID)
+    ON DELETE CASCADE;
+
+ALTER TABLE Comentario ADD CONSTRAINT FK_Comentario_Usuario
+    FOREIGN KEY (fk_Usuario_ID)
+    REFERENCES Usuario (ID)
+    ON DELETE CASCADE;
+
+ALTER TABLE Comentario ADD CONSTRAINT FK_Comentario_Pai
+    FOREIGN KEY (fk_Comentario_Pai_ID)
+    REFERENCES Comentario (ID)
+    ON DELETE CASCADE;
+
+ALTER TABLE Denuncia ADD CONSTRAINT FK_Denuncia_Post
+    FOREIGN KEY (fk_Post_ID)
+    REFERENCES Post (ID)
+    ON DELETE SET NULL;
+
+ALTER TABLE Denuncia ADD CONSTRAINT FK_Denuncia_Usuario
     FOREIGN KEY (fk_Usuario_ID)
     REFERENCES Usuario (ID)
     ON DELETE SET NULL;

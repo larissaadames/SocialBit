@@ -97,7 +97,11 @@ const SocialBitSession = (() => {
     }
     const badge = ensureBadge();
     const username = String(session?.username || localStorage.getItem("username") || "usuario").trim() || "usuario";
-    badge.innerHTML = `<strong style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@${username.replace(/^@+/, "")}</strong>`;
+    const perfil = normalizePerfil(session?.perfil || localStorage.getItem("perfil"));
+    const adminBadge = perfil === "admin"
+      ? `<span style="color:#f4eaff;background:#241733;border:1px solid #7c35f2;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:900;">ADMIN</span>`
+      : "";
+    badge.innerHTML = `${adminBadge}<strong style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@${username.replace(/^@+/, "")}</strong>`;
 
     badge.style.display = "flex";
   }

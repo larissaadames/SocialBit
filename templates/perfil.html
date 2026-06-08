@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SocialBit - Perfil de @{{ u.username }}</title>
-    <link rel="stylesheet" href="/public/perfil/style.css?v=20260419b">
+    <link rel="icon" type="image/png" href="/public/img/bitCafé.png">
+    <link rel="stylesheet" href="/public/perfil/style.css?v=20260608c">
 </head>
 <body class="dark-theme">
 
@@ -92,6 +93,13 @@
                     </div>
                 </div>
             </section>
+
+            <section class="profile-posts-card">
+                <h2>Posts de @{{ u.username.lstrip('@') }}</h2>
+                <div id="profile-posts-list" class="profile-posts-list">
+                    <p class="profile-posts-message">Carregando posts...</p>
+                </div>
+            </section>
         </div>
     </main>
 
@@ -119,7 +127,7 @@
     </div>
 
     <input type="file" id="file-input" accept="image/*" style="display: none;">
-    <script src="/public/session.js?v=20260506"></script>
-    <script src="/public/perfil/script.js?v=20260506"></script>
+    <script src="/public/session.js?v=20260608a"></script>
+    <script src="/public/perfil/script.js?v=20260608c"></script>
 </body>
 </html>

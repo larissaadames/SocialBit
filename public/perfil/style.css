@@ -25,6 +25,12 @@ body.dark-theme {
     margin: 0;
     padding: 0;
     overflow-x: hidden;
+    animation: page-enter 0.22s ease both;
+}
+
+@keyframes page-enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* --- SISTEMA DE NOTIFICAÇÃO (TOASTS) --- */
@@ -773,4 +779,229 @@ body.dark-theme {
     .toast.show {
         transform: translateY(0);
     }
+}
+
+.profile-container {
+    width: 100%;
+}
+
+.profile-posts-card {
+    width: 100%;
+    margin-top: 24px;
+    background: rgba(21, 21, 21, 0.96);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    padding: 26px;
+}
+
+.profile-posts-card h2 {
+    color: #fff;
+    font-size: 22px;
+    margin-bottom: 18px;
+}
+
+.profile-posts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.profile-post-card {
+    background: #111;
+    border: 1px solid #303030;
+    border-radius: 12px;
+    padding: 18px;
+    cursor: pointer;
+}
+
+.profile-post-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    position: relative;
+}
+
+.profile-post-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    border: 1px solid var(--border-color);
+}
+
+.profile-post-username {
+    color: var(--accent-purple);
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.profile-post-menu {
+    margin-left: auto;
+    position: relative;
+}
+
+.profile-post-menu-trigger {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #333;
+    border-radius: 50%;
+    background: #171717;
+    color: #fff;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.profile-post-menu-content {
+    position: absolute;
+    top: 42px;
+    right: 0;
+    min-width: 180px;
+    background: #090909;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 10px;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 8;
+}
+
+.profile-post-menu.open .profile-post-menu-content {
+    display: flex;
+}
+
+.profile-post-menu-content button {
+    background: transparent;
+    border: 0;
+    color: #eee;
+    padding: 10px;
+    text-align: left;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.profile-post-menu-content button:hover {
+    background: #171717;
+}
+
+.profile-post-menu-content .danger {
+    color: #ff9aa3;
+}
+
+.profile-post-text {
+    color: #d0d0d0;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: sans-serif;
+}
+
+.profile-post-image {
+    width: 100%;
+    max-height: 320px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid #333;
+    margin-top: 12px;
+}
+
+.profile-posts-message {
+    color: #999;
+    font-size: 13px;
+    margin-top: 12px;
+}
+
+.profile-post-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.profile-post-comment {
+    min-height: 34px;
+    background: #1d1d20;
+    border: 1px solid #333;
+    border-radius: 999px;
+    color: #d9d9d9;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-post-votes.post-votes {
+    background-color: #1e1e1e;
+    padding: 6px 14px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.profile-post-comment {
+    width: 38px;
+    cursor: pointer;
+}
+
+.profile-post-votes .vote-arrow {
+    width: 20px;
+    height: 20px;
+    background-color: #555;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    transform: rotate(var(--rot));
+    mask-image: url('../img/pixelarrow.png');
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-image: url('../img/pixelarrow.png');
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+}
+
+.profile-post-votes .upvote {
+    --rot: -90deg;
+}
+
+.profile-post-votes .downvote {
+    --rot: 90deg;
+}
+
+.profile-post-votes .vote-arrow:hover {
+    background-color: #888;
+}
+
+.profile-post-votes .vote-arrow.upvoted {
+    background-color: #ff4d4d;
+}
+
+.profile-post-votes .vote-arrow.downvoted {
+    background-color: #7b2ff7;
+}
+
+.profile-post-votes .vote-count {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    min-width: 20px;
+    text-align: center;
+}
+
+.fa-solid {
+    width: 18px;
+    height: 18px;
+    display: inline-block;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.fa-comment {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='%23d9d9d9' d='M512 240c0 114.9-114.6 208-256 208c-37.1 0-72.3-6.4-104.1-17.9c-11.9 8.7-31.3 20.6-54.3 30.6C73.6 471.1 44.7 480 16 480c-6.5 0-12.3-3.9-14.8-9.9c-2.5-6-1.1-12.8 3.4-17.4l.3-.3c.3-.3.7-.8 1.3-1.4c1.1-1.2 2.8-3.1 4.9-5.7c4.1-5 9.6-12.4 15.2-21.6c10-16.6 19.5-38.4 21.4-62.9C17.7 326.8 0 285.1 0 240C0 125.1 114.6 32 256 32s256 93.1 256 208z'/%3E%3C/svg%3E");
 }

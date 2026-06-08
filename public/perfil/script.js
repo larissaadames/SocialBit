@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(window.location.search);
     const targetUserId = params.get('id'); 
     let loggedUserId = localStorage.getItem('userId');
+    let loggedRole = localStorage.getItem('perfil') || 'usuario';
 
     let fotoPendente = null;
 
@@ -22,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!sessaoAtual) return;
 
     loggedUserId = localStorage.getItem('userId');
+    loggedRole = localStorage.getItem('perfil') || 'usuario';
     const userIdToFetch = targetUserId || loggedUserId;
 
     // ELEMENTOS DA INTERFACE
@@ -239,6 +241,214 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (btnSalvar) {
         btnSalvar.addEventListener('click', () => salvarAlteracoes());
+    }
+
+    carregarPostsPerfil();
+
+    async function carregarPostsPerfil() {
+        const postsList = document.getElementById("profile-posts-list");
+        if (!postsList) return;
+
+        postsList.innerHTML = '<p class="profile-posts-message">Carregando posts...</p>';
+
+        try {
+            const res = await fetch(`${APP_BASE_URL}/posts/usuario/${userIdToFetch}`, { credentials: "include" });
+
+            if (res.status === 401) {
+                encerrarSessaoEIrLogin("Sua sessao expirou. Faca login novamente.");
+                return;
+            }
+
+            if (!res.ok) throw new Error("Erro ao carregar posts.");
+
+            const posts = await res.json();
+            postsList.innerHTML = "";
+
+            if (!Array.isArray(posts) || posts.length === 0) {
+                postsList.innerHTML = '<p class="profile-posts-message">Nenhum post publicado ainda.</p>';
+                return;
+            }
+
+            posts.forEach(post => {
+                const card = document.createElement("article");
+                card.className = "profile-post-card";
+                const isOwner = Number(post.usuario_id) === Number(loggedUserId);
+                const isAdmin = String(loggedRole).toLowerCase() === "admin";
+                card.addEventListener("click", () => {
+                    window.location.href = `/post/${post.id}`;
+                });
+
+                const header = document.createElement("div");
+                header.className = "profile-post-header";
+
+                const avatar = document.createElement("div");
+                avatar.className = "profile-post-avatar";
+                const foto = post.foto_url && post.foto_url.length > 50 ? post.foto_url : "/public/img/bitPerfil.png";
+                avatar.style.backgroundImage = `url('${foto}')`;
+
+                const username = document.createElement("span");
+                username.className = "profile-post-username";
+                username.textContent = formatUsername(post.username);
+
+                const menu = document.createElement("div");
+                menu.className = "profile-post-menu";
+
+                const menuButton = document.createElement("button");
+                menuButton.type = "button";
+                menuButton.className = "profile-post-menu-trigger";
+                menuButton.innerHTML = "&#8942;";
+
+                const menuContent = document.createElement("div");
+                menuContent.className = "profile-post-menu-content";
+
+                const reportButton = document.createElement("button");
+                reportButton.type = "button";
+                reportButton.innerHTML = '<span>!</span> Denunciar';
+                reportButton.addEventListener("click", event => {
+                    event.stopPropagation();
+                    showNotification("Abra o post para denunciar.", "error");
+                    menu.classList.remove("open");
+                });
+                menuContent.appendChild(reportButton);
+
+                if (isOwner) {
+                    const editButton = document.createElement("button");
+                    editButton.type = "button";
+                    editButton.innerHTML = '<span>✎</span> Editar';
+                    editButton.addEventListener("click", event => {
+                        event.stopPropagation();
+                        window.location.href = `/post/${post.id}`;
+                    });
+                    menuContent.appendChild(editButton);
+                }
+
+                if (isOwner || isAdmin) {
+                    const deleteButton = document.createElement("button");
+                    deleteButton.type = "button";
+                    deleteButton.className = "danger";
+                    deleteButton.innerHTML = '<span>x</span> Excluir';
+                    deleteButton.addEventListener("click", async event => {
+                        event.stopPropagation();
+                        await removerPostPerfil(post.id, card);
+                    });
+                    menuContent.appendChild(deleteButton);
+                }
+
+                menuButton.addEventListener("click", event => {
+                    event.stopPropagation();
+                    document.querySelectorAll(".profile-post-menu.open").forEach(item => item.classList.remove("open"));
+                    menu.classList.toggle("open");
+                });
+                menu.addEventListener("click", event => event.stopPropagation());
+                menu.appendChild(menuButton);
+                menu.appendChild(menuContent);
+
+                const texto = document.createElement("p");
+                texto.className = "profile-post-text";
+                texto.textContent = post.conteudo || "";
+
+                if (post.imagem_url) {
+                    const imagem = document.createElement("img");
+                    imagem.className = "profile-post-image";
+                    imagem.src = post.imagem_url;
+                    imagem.alt = "Imagem do post";
+                    card.appendChild(header);
+                    card.appendChild(texto);
+                    card.appendChild(imagem);
+                } else {
+                    card.appendChild(header);
+                    card.appendChild(texto);
+                }
+
+                const footer = document.createElement("div");
+                footer.className = "profile-post-footer";
+
+                const votos = document.createElement("div");
+                votos.className = "profile-post-votes post-votes";
+                votos.dataset.vote = String(post.voto || 0);
+                votos.innerHTML = `
+                    <button type="button" class="vote-arrow upvote ${post.voto === 1 ? "upvoted" : ""}" title="Upvote"></button>
+                    <strong class="vote-count">${post.votos || 0}</strong>
+                    <button type="button" class="vote-arrow downvote ${post.voto === -1 ? "downvoted" : ""}" title="Downvote"></button>
+                `;
+
+                const comentar = document.createElement("button");
+                comentar.type = "button";
+                comentar.className = "profile-post-comment";
+                comentar.title = "Comentar";
+                comentar.innerHTML = '<i class="fa-solid fa-comment"></i>';
+                comentar.addEventListener("click", event => {
+                    event.stopPropagation();
+                    window.location.href = `/post/${post.id}`;
+                });
+
+                header.appendChild(avatar);
+                header.appendChild(username);
+                header.appendChild(menu);
+                footer.appendChild(votos);
+                footer.appendChild(comentar);
+                card.appendChild(footer);
+                configurarVotosPerfil(post, votos);
+                postsList.appendChild(card);
+            });
+        } catch (e) {
+            postsList.innerHTML = '<p class="profile-posts-message">Erro ao carregar posts.</p>';
+        }
+    }
+
+    async function removerPostPerfil(postId, card) {
+        try {
+            const res = await fetch(`${APP_BASE_URL}/posts/${postId}`, {
+                method: "DELETE",
+                credentials: "include"
+            });
+            if (!res.ok) throw new Error("Não foi possível excluir o post.");
+            card.remove();
+            showNotification("Post excluído.");
+        } catch (error) {
+            showNotification(error.message || "Erro ao excluir post.", "error");
+        }
+    }
+
+    function configurarVotosPerfil(post, votosEl) {
+        const up = votosEl.querySelector(".upvote");
+        const down = votosEl.querySelector(".downvote");
+        const count = votosEl.querySelector(".vote-count");
+        if (!up || !down || !count) return;
+
+        let votoAtual = Number(post.voto || 0);
+        let base = (Number(post.votos || 0)) - votoAtual;
+
+        async function votar(tipo) {
+            const res = await fetch(`${APP_BASE_URL}/posts/${post.id}/votar?tipo=${tipo}`, {
+                method: "PUT",
+                credentials: "include"
+            });
+            if (!res.ok) throw new Error("Não foi possível votar.");
+            const data = await res.json();
+            count.textContent = data.votos;
+            base = Number(data.votos || 0) - votoAtual;
+        }
+
+        function atualizarVisual() {
+            up.classList.toggle("upvoted", votoAtual === 1);
+            down.classList.toggle("downvoted", votoAtual === -1);
+            count.textContent = base + votoAtual;
+        }
+
+        up.addEventListener("click", async event => {
+            event.stopPropagation();
+            votoAtual = votoAtual === 1 ? 0 : 1;
+            atualizarVisual();
+            await votar(votoAtual === 0 ? "cancel" : "up");
+        });
+
+        down.addEventListener("click", async event => {
+            event.stopPropagation();
+            votoAtual = votoAtual === -1 ? 0 : -1;
+            atualizarVisual();
+            await votar(votoAtual === 0 ? "cancel" : "down");
+        });
     }
 
     // REMOVER CONTA (INTERCEPTAÇÃO DO ERRO 401)

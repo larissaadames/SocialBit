@@ -105,7 +105,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const logoutModal = document.getElementById("logout-modal");
     const confirmLogoutBtn = document.getElementById("confirm-logout");
     const cancelLogoutBtn = document.getElementById("cancel-logout");
-    const navItems = document.querySelectorAll(".nav-item");
+    const navItems = document.querySelectorAll(".nav-item[data-target]");
+    const adminPanelLink = document.getElementById("admin-panel-link");
     const searchSection = document.querySelector(".search-section");
     const searchInput = document.getElementById("main-search");
     const searchResults = document.getElementById("search-results");
@@ -113,6 +114,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const togglePostButton = document.getElementById("btn-toggle-post");
     const postComposerForm = document.getElementById("post-composer-form");
     const postContentInput = document.getElementById("post-content");
+    const postImageInput = document.getElementById("post-image");
+    const postImageName = document.getElementById("post-image-name");
     const postCounter = document.getElementById("post-counter");
     const cancelPostButton = document.getElementById("btn-cancel-post");
     const sendPostButton = document.getElementById("btn-send-post");
@@ -136,6 +139,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     let activeFeedTarget = "home";
     let searchDebounceTimer;
     let lastSearchRequestId = 0;
+    let postImageBase64 = "";
 
     document.addEventListener("click", event => {
         fecharMenusAbertos();
@@ -160,6 +164,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     loggedUsername = localStorage.getItem("username") || loggedUsername;
     const loggedRole = String(localStorage.getItem("perfil") || "usuario").toLowerCase();
     const isAdmin = loggedRole === "admin";
+
+    if (isAdmin && adminPanelLink) {
+        adminPanelLink.style.display = "flex";
+        adminPanelLink.addEventListener("click", () => {
+            window.location.href = "/admin";
+        });
+    }
 
     configurarMenuUsuario();
     carregarAvatarHeader();
@@ -198,8 +209,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (postContentInput && postCounter) {
+        postContentInput.addEventListener("focus", () => {
+            if (postComposerForm) postComposerForm.classList.add("is-active");
+        });
+
         postContentInput.addEventListener("input", () => {
             postCounter.textContent = `${postContentInput.value.length}/${MAX_POST_LENGTH}`;
+        });
+    }
+
+    if (postImageInput) {
+        postImageInput.addEventListener("change", async () => {
+            const arquivo = postImageInput.files && postImageInput.files[0];
+            if (!arquivo) {
+                postImageBase64 = "";
+                if (postImageName) postImageName.textContent = "";
+                return;
+            }
+            postImageBase64 = await lerImagemComoBase64(arquivo);
+            if (postImageName) postImageName.textContent = arquivo.name;
         });
     }
 
@@ -212,8 +240,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             event.preventDefault();
 
             const conteudo = (postContentInput?.value || "").trim();
-            if (!conteudo) {
-                showToast("Escreva algo antes de publicar.", "error");
+            if (!conteudo && !postImageBase64) {
+                showToast("Escreva algo ou escolha uma imagem antes de publicar.", "error");
                 return;
             }
 
@@ -230,7 +258,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${token}`,
                     },
-                    body: JSON.stringify({ conteudo }),
+                    body: JSON.stringify({ conteudo, imagem_url: postImageBase64 }),
                 });
 
                 if (response.status === 401) {
@@ -399,9 +427,74 @@ document.addEventListener("DOMContentLoaded", async () => {
     function fecharComposer() {
         if (!postComposerForm) return;
         postComposerForm.classList.add("is-hidden");
+        postComposerForm.classList.remove("is-active");
         if (postContentInput) postContentInput.value = "";
+        if (postImageInput) postImageInput.value = "";
+        if (postImageName) postImageName.textContent = "";
+        postImageBase64 = "";
         if (postCounter) postCounter.textContent = `0/${MAX_POST_LENGTH}`;
         if (togglePostButton) togglePostButton.textContent = "Postar";
+    }
+
+    function abrirModalDenuncia(postId) {
+        const modal = document.createElement("div");
+        modal.className = "modal-overlay";
+        modal.style.display = "flex";
+        modal.innerHTML = `
+            <div class="modal-content report-modal-content">
+                <h3>Denunciar post</h3>
+                <p>Escolha o motivo da denuncia.</p>
+                <select id="report-category" class="report-select">
+                    <option value="">Selecione uma categoria</option>
+                    <option value="Spam ou autopromocao">Spam ou autopromoção</option>
+                    <option value="Ódio, assédio ou discriminação">Ódio, assédio ou discriminação</option>
+                    <option value="Conteúdo ofensivo">Conteudo ofensivo</option>
+                    <option value="Código malicioso ou phishing">Codigo malicioso ou phishing</option>
+                    <option value="Vazamento de dados ou informação privada">Vazamento de dados ou informacao privada</option>
+                    <option value="Desinformação técnica perigosa">Desinformação técnica perigosa</option>
+                </select>
+                <textarea id="report-details" class="report-textarea" maxlength="500" placeholder="Explique rapidamente o problema..."></textarea>
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel id-cancel">Cancelar</button>
+                    <button type="button" class="btn-confirm id-send">Enviar denuncia</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.querySelector(".id-cancel").addEventListener("click", () => modal.remove());
+        modal.addEventListener("click", event => {
+            if (event.target === modal) modal.remove();
+        });
+        modal.querySelector(".id-send").addEventListener("click", async () => {
+            const categoria = modal.querySelector("#report-category").value;
+            const detalhes = modal.querySelector("#report-details").value.trim();
+            if (!categoria) {
+                showToast("Escolha uma categoria para denunciar.", "error");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${APP_BASE_URL}/posts/${postId}/denunciar`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ categoria, detalhes })
+                });
+
+                if (!response.ok) {
+                    const detail = await extrairErro(response);
+                    throw new Error(detail || "Nao foi possivel enviar a denuncia.");
+                }
+
+                modal.remove();
+                showToast("Denuncia enviada para a moderacao.", "success");
+            } catch (error) {
+                showToast(error.message || "Erro ao denunciar.", "error");
+            }
+        });
     }
 
     function criarCardPost(post, index) {
@@ -409,6 +502,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         card.className = "post-card post-enter";
         card.dataset.postId = String(post.id);
         card.style.animationDelay = `${Math.min(index * 45, 260)}ms`;
+        card.addEventListener("click", () => {
+            window.location.href = `/post/${post.id}`;
+        });
 
         const header = document.createElement("header");
         header.className = "post-header";
@@ -450,13 +546,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         reportAction.type = "button";
         reportAction.className = "post-menu-item";
         reportAction.innerHTML = '<span class="menu-item-icon">!</span><span>Denunciar</span>';
-        reportAction.addEventListener("click", () => {
+        reportAction.onclick = event => {
+            event.stopPropagation();
+            event.stopImmediatePropagation();
             menuWrapper.classList.remove("open");
-            showToast("A funcionalidade de denúncias será ativada em breve.", "info");
-        });
+            abrirModalDenuncia(post.id);
+        };
         menuContent.appendChild(reportAction);
 
-        if (canDelete) {
+        if (isOwner) {
             const editAction = document.createElement("button");
             editAction.type = "button";
             editAction.className = "post-menu-item";
@@ -466,7 +564,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 editarPost(post, card, editAction);
             });
             menuContent.appendChild(editAction);
+        }
 
+        if (canDelete) {
             const deleteAction = document.createElement("button");
             deleteAction.type = "button";
             deleteAction.className = "post-menu-item danger";
@@ -500,6 +600,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         contentText.textContent = post.conteudo || "";
         contentBox.appendChild(contentText);
 
+        if (post.imagem_url) {
+            const postImage = document.createElement("img");
+            postImage.className = "post-image-preview";
+            postImage.src = post.imagem_url;
+            postImage.alt = "Imagem do post";
+            contentBox.appendChild(postImage);
+        }
+
         const footer = document.createElement("footer");
         footer.className = "post-footer";
 
@@ -520,7 +628,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         shareButton.className = "post-action-btn share-action-btn";
         shareButton.title = "Compartilhar";
         shareButton.innerHTML = "&#10548;";
-        shareButton.addEventListener("click", () => compartilharPost(post, shareButton));
+        shareButton.addEventListener("click", event => {
+            event.stopPropagation();
+            compartilharPost(post, shareButton);
+        });
 
         const saveButton = document.createElement("button");
         saveButton.type = "button";
@@ -528,9 +639,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         saveButton.title = post.salvo ? "Remover dos salvos" : "Salvar post";
         if (post.salvo) saveButton.classList.add("is-saved");
         saveButton.innerHTML = "&#9873;";
-        saveButton.addEventListener("click", () => alternarPostSalvo(post.id, saveButton, card));
+        saveButton.addEventListener("click", event => {
+            event.stopPropagation();
+            alternarPostSalvo(post.id, saveButton, card);
+        });
+
+        const commentButton = document.createElement("button");
+        commentButton.type = "button";
+        commentButton.className = "post-action-btn comment-action-btn";
+        commentButton.title = "Comentar";
+        commentButton.innerHTML = '<span class="comment-bubble-icon"></span>';
+        commentButton.addEventListener("click", event => {
+            event.stopPropagation();
+            window.location.href = `/post/${post.id}`;
+        });
 
         socialActions.appendChild(shareButton);
+        socialActions.appendChild(commentButton);
         socialActions.appendChild(saveButton);
         footer.appendChild(votes);
         footer.appendChild(socialActions);
@@ -543,6 +668,243 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // --- PLUGADO E PERSISTIDO: ENGINE DE CRITÉRIOS DE VOTAÇÃO COMPLETA (FASE 5) ---
+    function configurarComentarios(card, postId) {
+        const button = card.querySelector(".comment-action-btn");
+        const section = card.querySelector(".post-comments");
+        const form = card.querySelector(".comment-form");
+        const input = card.querySelector(".comment-input");
+        const list = card.querySelector(".comment-list");
+        let carregouComentarios = false;
+
+        if (!button || !section || !form || !input || !list) return;
+
+        button.addEventListener("click", async () => {
+            const vaiAbrir = section.classList.contains("is-hidden");
+            section.classList.toggle("is-hidden", !vaiAbrir);
+            if (vaiAbrir && !carregouComentarios) {
+                await carregarComentarios(postId, list);
+                carregouComentarios = true;
+            }
+            if (vaiAbrir) input.focus();
+        });
+
+        form.addEventListener("submit", async event => {
+            event.preventDefault();
+            const texto = input.value.trim();
+            if (!texto) {
+                showToast("Escreva um comentario antes de enviar.", "error");
+                return;
+            }
+            await enviarComentario(postId, texto, null, list);
+            input.value = "";
+            carregouComentarios = true;
+        });
+    }
+
+    async function carregarComentarios(postId, list) {
+        list.innerHTML = '<p class="comments-message">Carregando comentarios...</p>';
+        try {
+            const response = await fetch(`${APP_BASE_URL}/posts/${postId}/comentarios`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.status === 401) {
+                encerrarSessaoEIrLogin("Sua sessao expirou. Faca login novamente.");
+                return;
+            }
+
+            if (!response.ok) throw new Error("Nao foi possivel carregar comentarios.");
+
+            const comentarios = await response.json();
+            renderizarComentarios(Array.isArray(comentarios) ? comentarios : [], list, postId);
+        } catch (error) {
+            list.innerHTML = '<p class="comments-message">Erro ao carregar comentarios.</p>';
+        }
+    }
+
+    function renderizarComentarios(comentarios, list, postId) {
+        list.innerHTML = "";
+
+        if (!comentarios.length) {
+            list.innerHTML = '<p class="comments-message">Nenhum comentario ainda.</p>';
+            return;
+        }
+
+        const porPai = {};
+        comentarios.forEach(comentario => {
+            const pai = comentario.comentario_pai_id || 0;
+            if (!porPai[pai]) porPai[pai] = [];
+            porPai[pai].push(comentario);
+        });
+
+        (porPai[0] || []).forEach(comentario => {
+            list.appendChild(criarComentarioItem(comentario, porPai, postId, list));
+        });
+    }
+
+    function criarComentarioItem(comentario, porPai, postId, list) {
+        const item = document.createElement("article");
+        item.className = "comment-item";
+        item.dataset.commentId = String(comentario.id);
+
+        const linha = document.createElement("div");
+        linha.className = "comment-line";
+
+        const votos = document.createElement("div");
+        votos.className = "comment-votes";
+        votos.innerHTML = [
+            `<div class="vote-arrow comment-upvote ${comentario.voto === 1 ? 'upvoted' : ''}" aria-label="Upvote"></div>`,
+            `<span class="comment-vote-count" style="color: ${comentario.voto === 1 ? '#ff4d4d' : comentario.voto === -1 ? '#7b2ff7' : '#ffffff'}">${comentario.votos || 0}</span>`,
+            `<div class="vote-arrow comment-downvote ${comentario.voto === -1 ? 'downvoted' : ''}" aria-label="Downvote"></div>`
+        ].join("");
+
+        const corpo = document.createElement("div");
+        corpo.className = "comment-body";
+
+        const autor = document.createElement("strong");
+        autor.className = "comment-author";
+        autor.textContent = formatUsername(comentario.username);
+
+        const texto = document.createElement("p");
+        texto.className = "comment-text";
+        texto.textContent = comentario.texto || "";
+
+        const responder = document.createElement("button");
+        responder.type = "button";
+        responder.className = "comment-reply-btn";
+        responder.textContent = "Responder";
+
+        const respostaForm = document.createElement("form");
+        respostaForm.className = "comment-form reply-form is-hidden";
+        respostaForm.innerHTML = `
+            <textarea class="comment-input" maxlength="500" placeholder="Responder comentario..."></textarea>
+            <button type="submit" class="comment-send-btn">Enviar</button>
+        `;
+
+        responder.addEventListener("click", () => {
+            respostaForm.classList.toggle("is-hidden");
+            respostaForm.querySelector("textarea")?.focus();
+        });
+
+        respostaForm.addEventListener("submit", async event => {
+            event.preventDefault();
+            const inputResposta = respostaForm.querySelector("textarea");
+            const textoResposta = inputResposta.value.trim();
+            if (!textoResposta) {
+                showToast("Escreva uma resposta antes de enviar.", "error");
+                return;
+            }
+            await enviarComentario(postId, textoResposta, comentario.id, list);
+        });
+
+        corpo.appendChild(autor);
+        corpo.appendChild(texto);
+        corpo.appendChild(responder);
+        corpo.appendChild(respostaForm);
+
+        linha.appendChild(votos);
+        linha.appendChild(corpo);
+        item.appendChild(linha);
+
+        configurarVotacaoComentario(item);
+
+        (porPai[comentario.id] || []).forEach(filho => {
+            item.appendChild(criarComentarioItem(filho, porPai, postId, list));
+        });
+
+        return item;
+    }
+
+    async function enviarComentario(postId, texto, comentarioPaiId, list) {
+        try {
+            const response = await fetch(`${APP_BASE_URL}/posts/${postId}/comentarios`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ texto, comentario_pai_id: comentarioPaiId }),
+            });
+
+            if (response.status === 401) {
+                encerrarSessaoEIrLogin("Sua sessao expirou. Faca login novamente.");
+                return;
+            }
+
+            if (!response.ok) {
+                const detail = await extrairErro(response);
+                throw new Error(detail || "Nao foi possivel comentar.");
+            }
+
+            await carregarComentarios(postId, list);
+            showToast("Comentario enviado!", "success");
+        } catch (error) {
+            showToast(error.message || "Erro ao enviar comentario.", "error");
+        }
+    }
+
+    function configurarVotacaoComentario(commentElement) {
+        const upBtn = commentElement.querySelector(".comment-upvote");
+        const downBtn = commentElement.querySelector(".comment-downvote");
+        const countSpan = commentElement.querySelector(".comment-vote-count");
+        const comentarioId = commentElement.dataset.commentId;
+
+        if (!upBtn || !downBtn || !countSpan || !comentarioId) return;
+
+        let userVote = upBtn.classList.contains("upvoted") ? 1 : downBtn.classList.contains("downvoted") ? -1 : 0;
+        const baseCount = (parseInt(countSpan.textContent, 10) || 0) - userVote;
+
+        async function sincronizar(tipo) {
+            try {
+                const response = await fetch(`${APP_BASE_URL}/comentarios/${comentarioId}/votar?tipo=${tipo}`, {
+                    method: "PUT",
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                if (response.status === 401) {
+                    encerrarSessaoEIrLogin("Sua sessao expirou. Faca login novamente.");
+                    return;
+                }
+
+                if (!response.ok) throw new Error("Nao foi possivel votar no comentario.");
+                const data = await response.json();
+                countSpan.textContent = data.votos;
+            } catch (error) {
+                showToast(error.message || "Erro ao votar no comentario.", "error");
+            }
+        }
+
+        upBtn.addEventListener("click", async () => {
+            if (userVote === 1) {
+                userVote = 0;
+                upBtn.classList.remove("upvoted");
+                atualizarContadorVisual(countSpan, baseCount, userVote);
+                await sincronizar("cancel");
+            } else {
+                userVote = 1;
+                upBtn.classList.add("upvoted");
+                downBtn.classList.remove("downvoted");
+                atualizarContadorVisual(countSpan, baseCount, userVote);
+                await sincronizar("up");
+            }
+        });
+
+        downBtn.addEventListener("click", async () => {
+            if (userVote === -1) {
+                userVote = 0;
+                downBtn.classList.remove("downvoted");
+                atualizarContadorVisual(countSpan, baseCount, userVote);
+                await sincronizar("cancel");
+            } else {
+                userVote = -1;
+                downBtn.classList.add("downvoted");
+                upBtn.classList.remove("upvoted");
+                atualizarContadorVisual(countSpan, baseCount, userVote);
+                await sincronizar("down");
+            }
+        });
+    }
+
     function configurarVotacao(postElement) {
         const upBtn = postElement.querySelector(".upvote");
         const downBtn = postElement.querySelector(".downvote");
@@ -593,7 +955,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         }
 
-        upBtn.addEventListener("click", async () => {
+        upBtn.addEventListener("click", async event => {
+            event.stopPropagation();
             triggerAnimation(upBtn);
             let tipoEnvio = "";
             if (userVote === 1) {
@@ -610,7 +973,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             await sincronizarVotoComServidor(tipoEnvio);
         });
 
-        downBtn.addEventListener("click", async () => {
+        downBtn.addEventListener("click", async event => {
+            event.stopPropagation();
             triggerAnimation(downBtn);
             let tipoEnvio = "";
             if (userVote === -1) {
@@ -879,6 +1243,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         textarea.select();
         document.execCommand("copy");
         textarea.remove();
+    }
+
+    function lerImagemComoBase64(arquivo) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error("Nao foi possivel ler a imagem."));
+            reader.readAsDataURL(arquivo);
+        });
     }
 
     function fecharMenusAbertos() {
