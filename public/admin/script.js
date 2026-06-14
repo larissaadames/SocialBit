@@ -163,7 +163,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 </div>
             `;
             item.querySelector('[data-report-action="analisada"]')?.addEventListener("click", () => atualizarDenuncia(denuncia.id, "analisada"));
-            item.querySelector('[data-report-action="remover-post"]')?.addEventListener("click", () => removerPostDenunciado(denuncia.post_id));
+            const removePostButton = item.querySelector('[data-report-action="remover-post"]');
+            removePostButton?.addEventListener("click", () => removerPostDenunciado(denuncia.post_id, removePostButton));
             reportsList.appendChild(item);
         });
     }
@@ -370,18 +371,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    async function removerPostDenunciado(postId) {
+    async function removerPostDenunciado(postId, button) {
         if (!postId) return;
+        if (button) button.disabled = true;
         try {
             const response = await fetch(`${APP_BASE_URL}/posts/${postId}`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` }
             });
-            if (!response.ok) throw new Error("Erro ao remover post.");
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.detail || "Erro ao remover post.");
+            }
             await carregarDados();
             mostrarAviso(reportsList, "Post removido.");
         } catch (error) {
-            mostrarAviso(reportsList, "Não foi possível remover o post.");
+            mostrarAviso(reportsList, error.message || "Não foi possível remover o post.");
+            if (button) button.disabled = false;
         }
     }
 });

@@ -1138,7 +1138,9 @@ async def remover_post(post_id: int, request: Request, db: Session = Depends(get
     if not relacionamento: raise HTTPException(status_code=404)
     
     current_user = db.query(Usuario).filter(Usuario.ID == user_id).first()
-    if not current_user or int(relacionamento.usuario_id) != int(user_id): 
+    is_owner = current_user and int(relacionamento.usuario_id) == int(user_id)
+    is_admin = current_user and get_user_role(current_user) == "admin"
+    if not is_owner and not is_admin:
         raise HTTPException(status_code=403, detail="Sem permissão")
 
     apagar_post_completo(db, post_id)

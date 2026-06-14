@@ -648,7 +648,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         commentButton.type = "button";
         commentButton.className = "post-action-btn comment-action-btn";
         commentButton.title = "Comentar";
-        commentButton.innerHTML = '<span class="comment-bubble-icon"></span>';
+        commentButton.innerHTML = '<i class="fa-solid fa-comment"></i>';
         commentButton.addEventListener("click", event => {
             event.stopPropagation();
             window.location.href = `/post/${post.id}`;
