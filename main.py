@@ -46,7 +46,7 @@ def verify_password(plain_password: str, stored_password: str) -> bool:
 
 # --- 1. CONFIGURAÇÃO DO BANCO DE DADOS ---
 DB_USER = "root"
-DB_PASSWORD = "root"  
+DB_PASSWORD = "6540"  
 DB_HOST = "localhost"
 DB_NAME = "socialbit"
 
