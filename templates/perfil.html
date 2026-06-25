@@ -47,12 +47,13 @@
                     <div id="view-mode" class="info-text-section">
                         <h1 id="display-nome-completo">{{ u.nome }} {{ u.sobrenome }}</h1>
                         <p id="display-username">@{{ u.username.lstrip('@') }}</p>
-                        <div class="bio-box">
+                        <div class="bio-box">   
                             <p id="display-bio">{{ u.bio if u.bio else "> Olá! Bem-vindo ao meu SocialBit." }}</p>
                         </div>
                         <div class="extra-info">
                             <span id="display-telefone" class="info-item">{% if u.telefone %}📞 {{ u.telefone }}{% endif %}</span>
                             <span id="display-dtNasc" class="info-item">{% if u.dtNasc %}🎂 {{ u.dtNasc }}{% endif %}</span>
+                            <span id="display-dtNasc" class="info-item">{% if u.altura %}altura: {{ u.altura }}{% endif %}</span>
                         </div>
                         <button id="btn-edit-perfil" class="btn-primary" style="display: {% if pode_editar %}block{% else %}none{% endif %};">Editar Perfil</button>
                     </div>

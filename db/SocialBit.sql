@@ -143,5 +143,8 @@ VALUES (1, 'teste@gmail.com', '123456testeTESTE@!', 'testador', 'Teste');
 
 
 ALTER TABLE Usuario ADD COLUMN bio TEXT;
+ALTER TABLE Usuario ADD COLUMN universidade VARCHAR(50);
+ALTER TABLE Usuario ADD COLUMN foto_urlTEXT;
+ALTER TABLE Usuario ADD COLUMN altura FLOAT;
 ALTER TABLE Usuario MODIFY COLUMN foto_url LONGTEXT;
 SELECT * FROM Usuario;

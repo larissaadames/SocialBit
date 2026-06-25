@@ -42,6 +42,7 @@ const usernameInput = document.getElementById("username");
 const emailInput = document.getElementById("email");
 const nomeInput = document.getElementById("nome");
 const sobrenomeInput = document.getElementById("sobrenome");
+const universidadeInput = document.getElementById("universidade");
 const alturaInput = document.getElementById("altura");
 const telefoneInput = document.getElementById("telefone");
 const dataNascimentoInput = document.getElementById("dtNasc");
@@ -254,6 +255,7 @@ if (cadastroForm) {
         senha: s1,
         nome: nomeInput.value.trim(),
         sobrenome: sobrenomeInput.value.trim(),
+        universidade: universidadeInput.value.trim(),
         altura: alturaInput.value.trim(),
         telefone: telValue,
       };

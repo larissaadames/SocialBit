@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, text, func, and_
+from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, text, func, and_, Float
 from sqlalchemy.orm import sessionmaker, Session, declarative_base  
 from pydantic import BaseModel
 from typing import List, Optional
@@ -52,7 +52,13 @@ DB_NAME = "socialbit"
 
 SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    pool_size=5,
+    max_overflow=10,        
+    pool_recycle=1800,      
+    pool_timeout=15         
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -65,7 +71,9 @@ class Usuario(Base):
     email = Column(String(100), unique=True)
     senha = Column(String(100))
     nome = Column(String(50))
-    sobrenome = Column(String(50))
+    sobrenome = Column(String(50), nullable=False)
+    universidade = Column(String(50))
+    altura = Column((Float), nullable=False)
     telefone = Column(String(20))
     role = Column(String(20), nullable=False, default="usuario")
     status_moderacao = Column(String(30), nullable=False, default="ativo")
@@ -77,6 +85,7 @@ class Post(Base):
     ID = Column(Integer, primary_key=True, index=True)
     conteudo = Column("texto", Text)
     votos = Column("voto", Integer, default=0)
+    categoria = Column("categoria", String(50), nullable=True)
     data_criacao = Column("data_criacao", String(19), nullable=True)
     imagem_url = Column("imagem_url", Text, nullable=True)
 
@@ -132,12 +141,16 @@ class UsuarioCreate(BaseModel):
     email: str
     nome: str
     sobrenome: str
+    universidade: str
+    altura: float
     telefone: str
 
 class UserUpdate(BaseModel):
     id: int
     nome: str
     sobrenome: str
+    universidade: str
+    altura: float
     bio: str
     telefone: str
     dtNasc: str
@@ -146,6 +159,7 @@ class UserUpdate(BaseModel):
 class PostCreate(BaseModel):
     usuario_id: int
     conteudo: str
+    categoria: str
 
 class PostCreateAuth(BaseModel):
     conteudo: str
@@ -595,6 +609,8 @@ async def cadastrar_usuario(dados: UsuarioCreate, db: Session = Depends(get_db))
         senha=senha_criptografada,  
         nome=dados.nome,  
         sobrenome=dados.sobrenome,
+        universidade=dados.universidade,
+        altura=dados.altura,
         telefone=dados.telefone,
         dtNasc=dados.dtNasc
     )
@@ -646,7 +662,7 @@ async def buscar_usuarios(username: str, request: Request, db: Session = Depends
     termo = username.strip()
     if not termo: return []
     usuarios = db.query(Usuario).filter(Usuario.username.like(f"%{termo}%")).limit(10).all()
-    return [{"id": u.ID, "username": u.username, "nome": u.nome, "sobrenome": u.sobrenome} for u in usuarios]
+    return [{"id": u.ID, "username": u.username, "nome": u.nome, "sobrenome": u.sobrenome, "universidade": u.universidade} for u in usuarios]
 
 @app.get("/usuarios/{user_id}")
 async def obtener_perfil(user_id: str, request: Request, db: Session = Depends(get_db)):
@@ -654,7 +670,7 @@ async def obtener_perfil(user_id: str, request: Request, db: Session = Depends(g
     if user_id in ["null", "undefined", ""]: raise HTTPException(status_code=400, detail="ID inválido")
     usuario = db.query(Usuario).filter(Usuario.ID == int(user_id)).first()
     if not usuario: raise HTTPException(status_code=404, detail="Não encontrado")
-    return {"id": usuario.ID, "username": usuario.username, "nome": usuario.nome, "sobrenome": usuario.sobrenome, "bio": usuario.bio or "", "telefone": usuario.telefone or "", "dtNasc": usuario.dtNasc or "", "foto_url": usuario.foto_url or "", "perfil": get_user_role(usuario)}
+    return {"id": usuario.ID, "username": usuario.username, "nome": usuario.nome,"universidade": usuario.universidade, "sobrenome": usuario.sobrenome, "altura": usuario.altura, "bio": usuario.bio or "", "telefone": usuario.telefone or "", "dtNasc": usuario.dtNasc or "", "foto_url": usuario.foto_url or "", "perfil": get_user_role(usuario)}
 
 @app.put("/usuarios/update")
 async def atualizar_perfil(dados: UserUpdate, request: Request, db: Session = Depends(get_db)):
@@ -675,6 +691,8 @@ async def atualizar_perfil(dados: UserUpdate, request: Request, db: Session = De
     
     db_user.nome = dados.nome
     db_user.sobrenome = dados.sobrenome
+    db_user.universidade = dados.universidade
+    db_user.altura = dados.altura
     db_user.bio = dados.bio
     db_user.telefone = dados.telefone
     db_user.dtNasc = dados.dtNasc
@@ -761,7 +779,7 @@ async def criar_post_autenticado(dados: PostCreateAuth, request: Request, db: Se
     if not conteudo_limpo and not dados.imagem_url: raise HTTPException(status_code=400, detail="Vazio")
     ultimo_id = db.query(func.max(Post.ID)).scalar() or 0
     novo_post_id = int(ultimo_id) + 1
-    novo_post = Post(ID=novo_post_id, conteudo=conteudo_limpo, votos=0, data_criacao=data_hora_atual(), imagem_url=dados.imagem_url or None)
+    novo_post = Post(ID=novo_post_id, conteudo=conteudo_limpo, categoria=dados.categoria, votos=0, data_criacao=data_hora_atual(), imagem_url=dados.imagem_url or None)
     db.add(novo_post)
     db.flush()
     db.add(PostUsuario(usuario_id=user_id, post_id=novo_post_id))
