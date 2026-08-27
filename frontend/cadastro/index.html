@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cadastro</title>
+    <link rel="icon" type="image/png" href="/public/img/bitCafé.png" />
+    <link rel="stylesheet" href="/public/Cadastro/style.css" />
+  </head>
+  <body>
+    <div id="notification-container"></div>
+
+    <div class="bg-geo">
+      <div class="b b1"></div>
+      <div class="b b2"></div>
+      <div class="b b3"></div>
+      <div class="b b4"></div>
+      <div class="b b5"></div>
+      <div class="b b6"></div>
+      <div class="b b7"></div>
+      <div class="b b8"></div>
+      <div class="b b9"></div>
+    </div>
+
+    <div class="registration-card">
+      <div class="illustrations-side">
+        <img src="/public/img/bitLampada.png" alt="bit" class="img-character" />
+      </div>
+
+      <div class="form-side">
+        <h1>Cadastro</h1>
+
+        <form id="cadastro-form" autocomplete="off" novalidate>
+          <div class="form-grid">
+            <div class="input-group">
+              <label for="nome">Nome</label>
+              <input
+                type="text"
+                id="nome"
+                minlength="2"
+                maxlength="15"
+                pattern="[A-Za-zÀ-ÿ\s]+"
+                title="Use apenas letras"
+                required
+                placeholder="Nome"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="input-group">
+              <label for="sobrenome">Sobrenome</label>
+              <input
+                type="text"
+                id="sobrenome"
+                minlength="2"
+                maxlength="20"
+                pattern="[A-Za-zÀ-ÿ\s]+"
+                title="Use apenas letras"
+                placeholder="Sobrenome"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="input-group">
+              <label for="universidade">Universidade</label>
+              <input
+                type="text"
+                id="universidade"
+                minlength="2"
+                maxlength="20"
+                pattern="[A-Za-zÀ-ÿ\s]+"
+                title="Use apenas letras"
+                placeholder="universidade"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="input-group full-width">
+              <label for="email">E-mail</label>
+              <input
+                type="email"
+                id="email"
+                required
+                placeholder="exemplo@email.com"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="input-group">
+              <label for="dtNasc">Data de Nascimento</label>
+              <input type="date" id="dtNasc" required />
+            </div>
+
+            <div class="input-group">
+              <label for="username">Usuário</label>
+              <input
+                type="text"
+                id="username"
+                minlength="4"
+                maxlength="26"
+                placeholder="@usuario"
+                required
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="input-group full-width">
+              <label for="telefone">Telefone</label>
+              <input
+                type="tel"
+                id="telefone"
+                maxlength="15"
+                placeholder="(00) 00000-0000"
+                required
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="full-width senha-wrapper">
+              <div class="input-group">
+                <label for="senha">Senha</label>
+                <div class="password-field">
+                  <input type="password" id="senha" autocomplete="new-password" required placeholder="Insira sua senha" />
+                  <button type="button" id="toggle-senha-cadastro">👁</button>
+                </div>
+              </div>
+
+              <div class="regras-div">
+                <div class="regras-validacao" id="regras-validacao">
+                  <ul class="password-checklist" id="password-checklist">
+                    <li id="rule-len">Mínimo 8 caracteres</li>
+                    <li id="rule-upper">Letra maiúscula</li>
+                    <li id="rule-lower">Letra minúscula</li>
+                    <li id="rule-num">Número</li>
+                    <li id="rule-symbol">Símbolo (@$!%*?&)</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="input-group full-width">
+              <label for="senha-confirmar">Confirmar senha</label>
+              <div class="password-field">
+                <input
+                  type="password"
+                  id="senha-confirmar"
+                  autocomplete="new-password"
+                  required
+                  placeholder="Insira sua senha"
+                />
+                <button type="button" id="toggle-senha-confirmar">👁</button>
+              </div>
+
+              <button type="submit" class="btn-submit" id="btn-submit">Criar Conta</button>
+
+              <div class="login-link">
+                <a href="/login">➔ Já possui uma conta?</a>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/public/api-config.js"></script>
+    <script src="/public/session.js?v=20260506"></script>
+    <script src="/public/Cadastro/script.js?v=20260506"></script>
+  </body>
+</html>

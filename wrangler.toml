@@ -1,0 +1,7 @@
+# Cloudflare Pages - SocialBit Frontend
+# Deploy: conecte o repositorio e use a pasta "frontend" como diretorio de publicacao.
+# Build command: (vazio)
+# Build output directory: frontend
+
+name = "socialbit-frontend"
+pages_build_output_dir = "frontend"

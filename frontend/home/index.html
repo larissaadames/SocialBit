@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialBit - Home</title>
+    <link rel="icon" type="image/png" href="/public/img/bitCafé.png">
+    <link rel="stylesheet" href="/public/home/style.css?v=20260608b">
+</head>
+<body class="dark-theme">
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <header class="app-header">
+        <div class="header-container">
+            <a href="/home" class="logo-section logo-link">
+                <span class="logo-text">SocialBit</span>
+                <img src="/public/img/bitCodando.png" alt="Bug BitSocial" class="logo-icon-img">
+            </a>
+            <div class="search-section">
+                <input type="text" placeholder="Pesquisar usuários..." class="search-bar" id="main-search">
+                <div class="search-results" id="search-results"></div>
+            </div>
+
+            <div class="user-menu-wrapper">
+                <div class="header-user-avatar" id="header-avatar"></div>
+
+                <div id="user-dropdown" class="dropdown-menu">
+                    <a href="/perfil" class="dropdown-item">Acessar Perfil</a>
+                    <button id="btn-logout-trigger" class="dropdown-item logout-style">Sair</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="home-grid">
+            
+            <nav class="nav-sidebar">
+                <div class="nav-item active" data-target="home">
+                    <span class="nav-icon"></span> Página Inicial
+                </div>
+                <div class="nav-item" data-target="saved">
+                    <span class="nav-icon"></span> Salvos
+                </div>
+                <div class="nav-item admin-nav-item" id="admin-panel-link" style="display: none;">
+                    <span class="nav-icon"></span> Painel Admin
+                </div>
+            </nav>
+
+            <section class="feed-section">
+                <div class="create-post-card" id="create-post-card">
+                    <div class="create-post-top">
+                        <h2 class="post-prompt">> Qual foi o bug de hoje?</h2>
+                        <button class="btn-postar" id="btn-toggle-post" type="button">Postar</button>
+                    </div>
+
+                    <form class="post-composer is-hidden" id="post-composer-form">
+                        <textarea
+                            id="post-content"
+                            class="composer-input"
+                            maxlength="500"
+                            placeholder="Compartilhe seu bug, dica ou duvida com a comunidade..."
+                        ></textarea>
+                        <input type="file" id="post-image" accept="image/*" class="composer-file">
+                        <div id="post-image-name" class="composer-image-name"></div>
+
+                        <div class="composer-actions">
+                            <span class="composer-counter" id="post-counter">0/500</span>
+                            <label for="post-image" class="btn-image-post" title="Adicionar imagem"><span class="image-icon"></span></label>
+                            <button class="btn-cancel-post" id="btn-cancel-post" type="button" title="Cancelar">x</button>
+                            <button class="btn-send-post" id="btn-send-post" type="submit" title="Publicar">&gt;</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="feed-scroll" id="feed-scroll">
+                    <p class="feed-loading">Carregando posts...</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div id="logout-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Deseja mesmo sair?</h3>
+            <p>Você precisará fazer login novamente para postar e votar.</p>
+            <div class="modal-actions">
+                <button id="confirm-logout" class="btn-confirm">Sim, Sair</button>
+                <button id="cancel-logout" class="btn-cancel">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-confirm-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="custom-confirm-title">Confirmar Ação</h3>
+            <p id="custom-confirm-text">Tem certeza que deseja prosseguir?</p>
+            <div class="modal-actions">
+                <button id="custom-confirm-accept" class="btn-confirm">Confirmar</button>
+                <button id="custom-confirm-cancel" class="btn-cancel">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-edit-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Editar Publicação</h3>
+            <p>Altere o conteúdo do seu post abaixo:</p>
+            <textarea id="custom-edit-input" class="composer-input" style="margin-bottom: 20px; min-height: 100px; resize: vertical;"></textarea>
+            <div class="modal-actions">
+                <button id="custom-edit-save" class="btn-confirm" style="background-color: var(--accent-purple);">Salvar</button>
+                <button id="custom-edit-cancel" class="btn-cancel">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/public/api-config.js"></script>
+    <script src="/public/session.js?v=20260608a"></script>
+    <script src="/public/home/script.js?v=20260614"></script>
+</body>
+</html>

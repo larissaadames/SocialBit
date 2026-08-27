@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/public/img/bitCafé.png" />
+    <link rel="stylesheet" href="/public/Login/style.css" />
+    <title>Login</title>
+  </head>
+  <body>
+    <div id="notification-container"></div>
+
+    <div class="bg-geo">
+      <div class="b b1"></div>
+      <div class="b b2"></div>
+      <div class="b b3"></div>
+      <div class="b b4"></div>
+      <div class="b b5"></div>
+      <div class="b b6"></div>
+      <div class="b b7"></div>
+      <div class="b b8"></div>
+      <div class="b b9"></div>
+    </div>
+
+    <main class="login-container">
+      <h1 class="title">Login</h1>
+
+      <div class="content">
+        <div class="illustration">
+          <img src="/public/img/bitCafé.png" alt="Ilustração da Bit" />
+        </div>
+
+        <form class="login-form" id="login-form">
+          <div class="input-group">
+            <label for="email">Email</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              placeholder="exemplo@email.com"
+            />
+          </div>
+
+          <div class="input-group">
+            <label for="password">Senha</label>
+
+            <div class="password-field">
+              <input type="password" id="password" name="password" placeholder="••••••••" />
+
+              <button type="button" id="toggle-senha" tabindex="-1">👁</button>
+            </div>
+          </div>
+
+          <a href="#" class="forgot-password">Esqueceu a senha?</a>
+
+          <button type="submit" class="btn btn-primary" id="btn-submit">
+            Log in
+            <img src="/public/img/pixelarrow.png" alt="seta" class="btn-arrow" />
+          </button>
+
+          <p class="separator">ou</p>
+
+          <a href="/cadastro">
+            <button type="button" class="btn btn-secondary">Criar conta</button>
+          </a>
+        </form>
+      </div>
+    </main>
+    <script src="/public/api-config.js"></script>
+    <script src="/public/session.js?v=20260506"></script>
+    <script src="/public/Login/script.js?v=20260506"></script>
+  </body>
+</html>
