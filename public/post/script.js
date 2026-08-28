@@ -28,12 +28,11 @@ const showToast = (message, type = "success") => {
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
-    const sessaoAtual = await window.SocialBitSession?.renderCurrentSession({ requireAuth: true });
-    if (!sessaoAtual) return;
+    const sessaoAtual = await window.SocialBitSession?.renderCurrentSession({ requireAuth: false });
 
     const token = localStorage.getItem("token");
-    const loggedUserId = Number(sessaoAtual.id || localStorage.getItem("userId") || 0);
-    const loggedRole = String(sessaoAtual.perfil || localStorage.getItem("perfil") || "").toLowerCase();
+    const loggedUserId = Number(sessaoAtual?.id || localStorage.getItem("userId") || 0);
+    const loggedRole = String(sessaoAtual?.perfil || localStorage.getItem("perfil") || "").toLowerCase();
     const isAdmin = loggedRole === "admin";
     const postId = resolvePostId();
     const postDetail = document.getElementById("post-detail");
@@ -799,6 +798,5 @@ document.addEventListener("DOMContentLoaded", async () => {
         localStorage.removeItem("perfil");
         document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
         if (mensagem) showToast(mensagem, "error");
-        setTimeout(() => { window.location.href = "/login"; }, 1500);
     }
 });

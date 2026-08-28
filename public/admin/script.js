@@ -1,8 +1,7 @@
 const APP_BASE_URL = window.getAppBaseUrl ? window.getAppBaseUrl() : window.location.origin;
 
 document.addEventListener("DOMContentLoaded", async () => {
-    const sessaoAtual = await window.SocialBitSession?.renderCurrentSession({ requireAuth: true });
-    if (!sessaoAtual) return;
+    const sessaoAtual = await window.SocialBitSession?.renderCurrentSession({ requireAuth: false });
 
     const token = localStorage.getItem("token");
     const usersList = document.getElementById("admin-users-list");

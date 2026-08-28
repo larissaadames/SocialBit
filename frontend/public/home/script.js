@@ -144,9 +144,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
-    const sessaoAtual = await window.SocialBitSession?.renderCurrentSession({ requireAuth: true });
-    if (!sessaoAtual) return;
-
+    const sessaoAtual = await window.SocialBitSession?.renderCurrentSession({ requireAuth: false });
     loggedUserId = Number(localStorage.getItem("userId") || loggedUserId || 0);
     loggedUsername = localStorage.getItem("username") || loggedUsername;
     const loggedRole = String(localStorage.getItem("perfil") || "usuario").toLowerCase();
@@ -1257,10 +1255,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (mensagem) {
             showToast(mensagem, "error");
         }
-
-        setTimeout(() => {
-            window.location.href = LOGIN_PAGE_URL;
-        }, 2500); // 2.5 segundos: tempo ideal para o usuário ver o Toast
     }
 
     function configurarBuscaUsuarios() {

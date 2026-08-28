@@ -10,15 +10,62 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from pathlib import Path
+from urllib.parse import quote_plus
 import hashlib
+import os
 import re
 import bcrypt  
 
 # --- CONFIGURAÇÃO GLOBAL DE SEGURANÇA ---
-SECRET_KEY = "troque-esta-chave"
+SECRET_KEY = os.getenv("SECRET_KEY", "troque-esta-chave-em-producao")
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_SECONDS = 300
 PHONE_REGEX = re.compile(r"^\(\d{2}\)\s\d{4,5}-\d{4}$")
+
+def build_database_url() -> str:
+    explicit = os.getenv("DATABASE_URL") or os.getenv("MYSQL_URL")
+    if explicit:
+        if explicit.startswith("mysql://"):
+            return explicit.replace("mysql://", "mysql+pymysql://", 1)
+        return explicit
+
+    user = os.getenv("DB_USER", "root")
+    password = os.getenv("DB_PASSWORD", "6540")
+    host = os.getenv("DB_HOST", "localhost")
+    port = os.getenv("DB_PORT", "3306")
+    name = os.getenv("DB_NAME", "socialbit")
+    return (
+        f"mysql+pymysql://{quote_plus(user)}:{quote_plus(password)}"
+        f"@{host}:{port}/{name}"
+    )
+
+def get_cors_origins() -> List[str]:
+    raw = os.getenv("CORS_ORIGINS", "")
+    if raw.strip():
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return [
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+    ]
+
+def cookie_settings() -> dict:
+    cross_site = os.getenv("COOKIE_CROSS_SITE", "").lower() in {"1", "true", "yes"}
+    if cross_site:
+        return {"samesite": "none", "secure": True}
+    return {"samesite": "lax", "secure": False}
+
+def set_auth_cookie(response, token: str) -> None:
+    settings = cookie_settings()
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        max_age=TOKEN_EXPIRE_SECONDS,
+        httponly=True,
+        samesite=settings["samesite"],
+        secure=settings["secure"],
+    )
 
 def get_password_hash(password: str) -> str:
     """Transforma a senha em um hash criptográfico irreversível (Bcrypt nativo) para salvar no banco."""
@@ -45,12 +92,7 @@ def verify_password(plain_password: str, stored_password: str) -> bool:
     return plain_password == stored_password
 
 # --- 1. CONFIGURAÇÃO DO BANCO DE DADOS ---
-DB_USER = "root"
-DB_PASSWORD = "6540"  
-DB_HOST = "localhost"
-DB_NAME = "socialbit"
-
-SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
+SQLALCHEMY_DATABASE_URL = build_database_url()
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
@@ -185,7 +227,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -206,12 +248,7 @@ async def sliding_session_middleware(request: Request, call_next):
                     "exp": datetime.utcnow() + timedelta(seconds=TOKEN_EXPIRE_SECONDS)
                 }
                 new_token = jwt.encode(new_payload, SECRET_KEY, algorithm=ALGORITHM)
-                response.set_cookie(
-                    key="access_token", 
-                    value=new_token, 
-                    max_age=TOKEN_EXPIRE_SECONDS, 
-                    samesite="lax"
-                )
+                set_auth_cookie(response, new_token)
         except JWTError:
             pass
     return response
@@ -590,7 +627,7 @@ async def login(dados: LoginRequest, db: Session = Depends(get_db)):
         "access_token": token
     })
     
-    response.set_cookie(key="access_token", value=token, max_age=TOKEN_EXPIRE_SECONDS, samesite="lax")
+    set_auth_cookie(response, token)
     return response
 
 @app.post("/usuarios")

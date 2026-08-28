@@ -13,8 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let fotoPendente = null;
 
     // Valida o estado de sessão atual por segurança
-    const sessaoAtual = await window.SocialBitSession?.renderCurrentSession({ requireAuth: true });
-    if (!sessaoAtual) return;
+    const sessaoAtual = await window.SocialBitSession?.renderCurrentSession({ requireAuth: false });
 
     loggedUserId = localStorage.getItem('userId');
     loggedRole = localStorage.getItem('perfil') || 'usuario';
@@ -60,18 +59,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- FUNÇÃO CENTRAL DE EXPIRAÇÃO DE SESSÃO (FASE 5) ---
     function encerrarSessaoEIrLogin(mensagem = "") {
         localStorage.clear();
-        
-        // Destrói o cookie do servidor imediatamente no navegador
         document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
         if (mensagem) {
             showNotification(mensagem, "error");
         }
-
-        // Delay para leitura do Toast antes de deslogar de vez
-        setTimeout(() => {
-            window.location.href = "/login";
-        }, 2500);
     }
 
     // CONTROLE DE LOGOUT E MENUS
@@ -237,11 +229,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnSalvar.addEventListener('click', () => salvarAlteracoes());
     }
 
-    carregarPostsPerfil();
-
     async function carregarPostsPerfil() {
         const postsList = document.getElementById("profile-posts-list");
-        if (!postsList) return;
+        if (!postsList || !userIdToFetch) return;
 
         postsList.innerHTML = '<p class="profile-posts-message">Carregando posts...</p>';
 
@@ -525,7 +515,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    carregarPerfil();
-
-    const carregarHeader = async () => {};
+    if (userIdToFetch) {
+        carregarPerfil();
+        carregarPostsPerfil();
+    } else {
+        const postsList = document.getElementById("profile-posts-list");
+        if (postsList) {
+            postsList.innerHTML = '<p class="profile-posts-message">Entre com uma conta para ver posts de perfil.</p>';
+        }
+    }
 });

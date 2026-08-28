@@ -1,2 +1,2 @@
-/ /login 302
+/ /home 302
 /post/* /post/index.html 200
